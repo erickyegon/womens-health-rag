@@ -1,0 +1,55 @@
+# Environment
+.env
+.venv
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Data — never commit raw PDFs or processed text
+data/raw/
+data/processed/
+*.pdf
+
+# uv
+.uv/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Type checking
+.mypy_cache/
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Notebooks (clear outputs before committing)
+.ipynb_checkpoints/
+
+# LangGraph checkpoints (local SQLite)
+*.db
+checkpoints/
+
+# Evaluation outputs (tracked in docs/ instead)
+eval_results/
+*.csv

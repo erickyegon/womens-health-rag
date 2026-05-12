@@ -1,0 +1,99 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "womens-health-rag"
+version = "0.1.0"
+description = "Production RAG system for querying global women's health data"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Your Name", email = "you@example.com" }]
+
+dependencies = [
+    # LangChain ecosystem
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-community>=0.3.0",
+    "langgraph>=0.2.0",
+    "langsmith>=0.1.0",
+    # Vector storage
+    "pgvector>=0.3.0",
+    "psycopg2-binary>=2.9.0",
+    "sqlalchemy>=2.0.0",
+    # Embeddings & reranking
+    "openai>=1.40.0",
+    "cohere>=5.0.0",
+    "sentence-transformers>=3.0.0",
+    "onnxruntime>=1.18.0",
+    # PDF ingestion
+    "pymupdf>=1.24.0",
+    "pdfplumber>=0.11.0",
+    # Evaluation
+    "ragas>=0.1.0",
+    # API & UI
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "streamlit>=1.38.0",
+    "python-multipart>=0.0.9",
+    "httpx>=0.27.0",
+    # Config & utilities
+    "pydantic>=2.8.0",
+    "pydantic-settings>=2.4.0",
+    "python-dotenv>=1.0.0",
+    "rank-bm25>=0.2.2",
+    "tenacity>=8.5.0",
+    "rich>=13.7.0",
+    "typer>=0.12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+    "pre-commit>=3.8.0",
+    "types-psycopg2>=2.9.0",
+]
+
+[project.scripts]
+rag-ingest = "rag.ingestion.indexer:main"
+rag-eval   = "rag.evaluation.runner:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag"]
+
+# ── Ruff ──────────────────────────────────────────────────────────────────────
+[tool.ruff]
+line-length    = 100
+target-version = "py312"
+src            = ["src", "tests"]
+
+[tool.ruff.lint]
+select  = ["E", "F", "I", "N", "W", "UP"]
+ignore  = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["rag"]
+
+# ── Mypy ──────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version         = "3.12"
+strict                 = true
+ignore_missing_imports = true
+exclude                = ["notebooks/", "scripts/"]
+
+[[tool.mypy.overrides]]
+module   = ["ragas.*", "rank_bm25.*", "pymupdf.*", "pdfplumber.*"]
+ignore_missing_imports = true
+
+# ── Pytest ────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths       = ["tests"]
+asyncio_mode    = "auto"
+addopts         = "-v --tb=short"
+filterwarnings  = ["ignore::DeprecationWarning"]
