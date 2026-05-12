@@ -27,9 +27,12 @@ dependencies = [
     "cohere>=5.0.0",
     "sentence-transformers>=3.0.0",
     "onnxruntime>=1.18.0",
-    # PDF ingestion
+    # PDF ingestion — basic
     "pymupdf>=1.24.0",
     "pdfplumber>=0.11.0",
+    # PDF ingestion — multimodal (Episode 2B)
+    # docling is optional: uv add docling  (large download, ~2GB models)
+    # "docling>=2.0.0",
     # Evaluation
     "ragas>=0.1.0",
     # API & UI
@@ -42,6 +45,9 @@ dependencies = [
     "pydantic>=2.8.0",
     "pydantic-settings>=2.4.0",
     "python-dotenv>=1.0.0",
+    # Notebook support
+    "jupyter>=1.1.0",
+    "ipykernel>=6.29.0",
     "rank-bm25>=0.2.2",
     "tenacity>=8.5.0",
     "rich>=13.7.0",

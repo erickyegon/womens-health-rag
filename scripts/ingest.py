@@ -76,24 +76,29 @@ def main(
         "--drop",
         help="Drop and recreate the index table before ingestion. USE WITH CAUTION.",
     ),
+    multimodal: bool = typer.Option(
+        False,
+        "--multimodal",
+        help="[Episode 2B] Use Docling + GPT-4o vision + table-to-prose. Requires: uv add docling",
+    ),
+    vision_flag: bool = typer.Option(
+        True,
+        "--vision/--no-vision",
+        help="Enable GPT-4o figure descriptions (only active with --multimodal).",
+    ),
 ) -> None:
     """
     Run the full PDF ingestion pipeline.
 
-    Example usage:
-        # Ingest all PDFs in data/raw/ using recursive chunking
-        python scripts/ingest.py
-
-        # Use semantic chunking with local ONNX embeddings
-        python scripts/ingest.py --strategy semantic --backend onnx
-
-        # Dry run to preview what would be ingested
-        python scripts/ingest.py --dry-run
-
-        # Ingest with metadata mapping
-        python scripts/ingest.py --metadata data/metadata.json
+    Basic (Episodes 1-2):      python scripts/ingest.py --metadata data/metadata.json
+    Multimodal (Episode 2B):   python scripts/ingest.py --multimodal --metadata data/metadata.json
+    Docling only (no vision):  python scripts/ingest.py --multimodal --no-vision
+    Dry run:                   python scripts/ingest.py --dry-run
     """
     console.rule("[bold teal]Women's Health RAG — Ingestion Pipeline[/]")
+
+    if multimodal:
+        console.print("[bold magenta]🔬 Multimodal mode:[/] Docling + GPT-4o Vision + Table Prose")
 
     # ── Load metadata map ─────────────────────────────────────────────────────
     metadata_map: dict = {}
@@ -106,6 +111,51 @@ def main(
 
     # ── Step 1: Load PDFs ─────────────────────────────────────────────────────
     console.print("\n[bold]Step 1/5:[/] Loading PDFs from", str(data_dir))
+
+    if multimodal:
+        # Multimodal path: Docling + Vision + Prose
+        from rag.ingestion.multimodal_loader import MultimodalLoader, element_stats
+        with Progress(SpinnerColumn(), TextColumn("{task.description}"), console=console) as prog:
+            t = prog.add_task("Multimodal loading (Docling + Vision)...", total=None)
+            mm_loader = MultimodalLoader(vision_enabled=vision_flag, table_prose=True)
+            elements  = mm_loader.load_directory(data_dir, metadata_map=metadata_map)
+            docs      = mm_loader.to_documents(elements)
+            prog.update(t, completed=True)
+
+        stats = element_stats(elements)
+        console.print(f"  [green]✓[/] Loaded [bold]{stats['total']}[/] elements → [bold]{len(docs)}[/] documents")
+        console.print(f"     Text: {stats['text']} | Tables: {stats['tables']} (×2 w/prose) | Figures: {stats['figures']}")
+
+        # Skip basic clean/chunk steps — multimodal docs are already structured
+        if dry_run:
+            console.print("\n[yellow]Dry run — no data written to database.[/]")
+            return
+
+        embedder = Embedder(backend=backend)
+        index    = VectorIndex(embedder=embedder)
+        if drop_existing:
+            console.print("[yellow]⚠ Dropping existing index...[/]")
+            index.drop_and_recreate()
+        else:
+            index.init_schema()
+
+        console.print(f"\n[bold]Upserting {len(docs)} documents into pgvector...")
+        batch_size = 50
+        with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                      BarColumn(), TaskProgressColumn(), console=console) as prog:
+            t = prog.add_task("Upserting...", total=len(docs))
+            for i in range(0, len(docs), batch_size):
+                batch = docs[i:i + batch_size]
+                index.upsert_documents(batch)
+                prog.advance(t, len(batch))
+
+        elapsed = time.perf_counter() - start
+        console.rule()
+        console.print(
+            f"[bold green]✓ Multimodal ingestion complete[/] in {elapsed:.1f}s\n"
+            f"  {len(docs)} documents indexed | {index.count()} total in database"
+        )
+        return
     with Progress(SpinnerColumn(), TextColumn("{task.description}"), console=console) as prog:
         t = prog.add_task("Loading...", total=None)
         pages = load_directory(data_dir, metadata_map=metadata_map)

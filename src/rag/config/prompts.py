@@ -1,26 +1,19 @@
 """
-All prompt templates in one place.
-
-Keeping prompts here rather than scattered across chain files means:
-- One place to audit what the system says to the LLM
-- Easy A/B testing of prompt variants
-- Clear separation of concern: prompts are data, not code
-
-Episode 1: Introduced as a concept. Used properly from Episode 5.
+Prompt Templates — used across Episodes 5–16
+All prompts in one file: one place to audit, A/B test, and version.
 """
-
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-# ── Base RAG prompt ───────────────────────────────────────────────────────────
+# ── Episode 5: Base RAG ───────────────────────────────────────────────────────
 RAG_SYSTEM = """You are a specialist assistant for global women's health data.
-You answer questions by drawing exclusively on the retrieved document excerpts below.
+Answer ONLY using the retrieved document excerpts provided below.
 
-Core rules:
-1. ONLY use information present in the provided context. Never invent statistics.
-2. ALWAYS cite your sources using [Source N] notation after each claim.
-3. If the context does not contain enough information to answer, say so clearly.
-4. Express uncertainty when the data is ambiguous or conflicting across sources.
-5. Never provide medical advice — you are a data analysis assistant.
+Rules:
+1. Never invent statistics. If the context lacks the answer, say so clearly.
+2. Cite every claim with [Source N] notation matching the numbered excerpts.
+3. Express uncertainty when data is ambiguous or from different time periods.
+4. Never provide medical advice — you are a data analysis assistant.
+5. If the question is outside the scope of women's health data, decline politely.
 
 Context:
 {context}
@@ -32,69 +25,102 @@ RAG_PROMPT = ChatPromptTemplate.from_messages([
     ("human", "{question}"),
 ])
 
-# ── Document grading prompt (Phase 3) ────────────────────────────────────────
-GRADE_DOCUMENT_SYSTEM = """You are a relevance grader for a RAG retrieval system.
-Given a user question and a retrieved document excerpt, decide whether the excerpt
-is relevant to answering the question.
+# ── Episode 12: Structured output ────────────────────────────────────────────
+STRUCTURED_RAG_SYSTEM = RAG_SYSTEM + """
+Respond ONLY with a JSON object matching this schema exactly:
+{
+  "answer": "<your answer text with inline [Source N] citations>",
+  "sources": [{"n": 1, "title": "...", "page": ..., "country": "...", "year": "..."}],
+  "confidence": "high|medium|low",
+  "caveat": "<any important limitation or uncertainty, or null>"
+}"""
 
-Output ONLY a JSON object with this exact schema:
-{{"relevant": true|false, "reason": "<one sentence explanation>"}}
-
-Be strict: if the excerpt discusses a related topic but does not contain information
-that would help answer this specific question, mark it as not relevant."""
-
-GRADE_DOCUMENT_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", GRADE_DOCUMENT_SYSTEM),
-    ("human", "Question: {question}\n\nDocument excerpt:\n{document}"),
+STRUCTURED_RAG_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", STRUCTURED_RAG_SYSTEM),
+    MessagesPlaceholder(variable_name="chat_history", optional=True),
+    ("human", "{question}"),
 ])
 
-# ── Query rewriting prompt (Phase 2 / Phase 3) ────────────────────────────────
-REWRITE_QUERY_SYSTEM = """You are an expert at reformulating search queries to improve
-retrieval from a vector database of women's health reports.
+# ── Episode 11: Query rewriting ──────────────────────────────────────────────
+REWRITE_SYSTEM = """You are an expert at reformulating search queries for a
+vector database of women's health DHS reports.
 
-Given the original question, produce a clearer, more specific version that will
-retrieve better results. Focus on:
-- Expanding abbreviations and acronyms
-- Adding geographic and temporal specificity if implied
-- Breaking compound questions into their core retrieval need
-- Using terminology consistent with public health literature
+Rewrite the query to be more specific and retrieval-friendly:
+- Expand abbreviations (MMR → maternal mortality ratio)
+- Add domain context if implied
+- Keep it concise — one clear retrieval query
+- Output ONLY the rewritten query, nothing else."""
 
-Output ONLY the rewritten query, nothing else."""
-
-REWRITE_QUERY_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", REWRITE_QUERY_SYSTEM),
-    ("human", "Original question: {question}"),
+REWRITE_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", REWRITE_SYSTEM),
+    ("human", "Original: {question}"),
 ])
 
-# ── Router prompt (Phase 3) ───────────────────────────────────────────────────
-ROUTER_SYSTEM = """You are a query router for a women's health RAG system.
-Classify the incoming question into one of these retrieval strategies:
+HYDE_SYSTEM = """Generate a hypothetical document excerpt that would perfectly
+answer the following question about women's health data.
+Write it as if it were extracted from a DHS report — include plausible statistics.
+Output ONLY the hypothetical excerpt, 2-3 sentences."""
 
-- "direct": The question can be answered from general knowledge without retrieval
-- "vector": Single-hop semantic search will find the answer
-- "hybrid": The question contains specific terms (country codes, years, acronyms)
-             that benefit from keyword search alongside vector search
-- "multihop": The question requires synthesising information from multiple
-               separate retrievals (e.g., causal relationships between two topics)
+HYDE_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", HYDE_SYSTEM),
+    ("human", "{question}"),
+])
 
-Output ONLY a JSON object: {{"strategy": "<strategy>", "reason": "<one sentence>"}}"""
+MULTI_QUERY_SYSTEM = """Generate {n} different search queries that would help
+retrieve documents to answer this question from a women's health database.
+Each query should explore a different aspect.
+Output ONLY the queries, one per line, no numbering."""
+
+MULTI_QUERY_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", MULTI_QUERY_SYSTEM),
+    ("human", "Question: {question}"),
+])
+
+# ── Episode 18-20: LangGraph agent nodes ─────────────────────────────────────
+ROUTER_SYSTEM = """Classify this query for a women's health RAG system.
+Choose ONE strategy and return ONLY JSON:
+{{"strategy": "direct|vector|hybrid|multihop", "reason": "<one sentence>"}}
+
+direct   → answerable without retrieval (greetings, definitions)
+vector   → single semantic search covers it
+hybrid   → contains specific terms: country codes, years, acronyms (DHS, MMR)
+multihop → needs multiple retrievals (causal: "how does X affect Y")"""
 
 ROUTER_PROMPT = ChatPromptTemplate.from_messages([
     ("system", ROUTER_SYSTEM),
     ("human", "{question}"),
 ])
 
-# ── Hallucination check prompt (Phase 3) ─────────────────────────────────────
-HALLUCINATION_CHECK_SYSTEM = """You are a factual grounding checker.
-Given a generated answer and the source documents it was supposed to be based on,
-determine whether the answer makes claims that are NOT supported by the documents.
+GRADE_DOC_SYSTEM = """Grade whether this document excerpt is relevant to the question.
+Return ONLY JSON: {{"relevant": true|false, "reason": "<one sentence>"}}
+Be strict: tangentially related = not relevant."""
 
-Output ONLY a JSON object:
-{{"grounded": true|false, "unsupported_claims": ["claim1", "claim2"]}}
+GRADE_DOC_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", GRADE_DOC_SYSTEM),
+    ("human", "Question: {question}\n\nExcerpt:\n{document}"),
+])
 
-If grounded is true, unsupported_claims should be an empty list."""
+HALLUCINATION_SYSTEM = """Check if this answer is grounded in the source documents.
+Return ONLY JSON:
+{{"grounded": true|false, "unsupported_claims": ["claim1", ...]}}"""
 
-HALLUCINATION_CHECK_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", HALLUCINATION_CHECK_SYSTEM),
-    ("human", "Answer:\n{answer}\n\nSource documents:\n{documents}"),
+HALLUCINATION_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", HALLUCINATION_SYSTEM),
+    ("human", "Answer:\n{answer}\n\nSources:\n{documents}"),
+])
+
+# ── Episode 16: Guardrails ────────────────────────────────────────────────────
+INPUT_GUARD_SYSTEM = """You are a content safety filter for a women's health
+data assistant. Classify the input as:
+  "safe"       → health data question, appropriate to answer
+  "medical"    → requests specific medical advice (reject — we're data only)
+  "off_topic"  → unrelated to women's health or demographics
+  "sensitive"  → requires extra care (flag but answer)
+
+Return ONLY JSON: {{"classification": "safe|medical|off_topic|sensitive",
+                    "reason": "<one sentence>"}}"""
+
+INPUT_GUARD_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", INPUT_GUARD_SYSTEM),
+    ("human", "{question}"),
 ])

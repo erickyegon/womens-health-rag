@@ -1,0 +1,38 @@
+{
+  "PR149": {
+    "country": "Ghana",
+    "year": "2022",
+    "report_type": "dhs",
+    "report_title": "Ghana Demographic and Health Survey 2022"
+  },
+  "PR157": {
+    "country": "Nigeria",
+    "year": "2021",
+    "report_type": "dhs",
+    "report_title": "Nigeria Demographic and Health Survey 2021"
+  },
+  "Final-Mini-DHS-report-FR363": {
+    "country": "Ethiopia",
+    "year": "2019",
+    "report_type": "dhs",
+    "report_title": "Ethiopia Demographic and Health Survey 2019"
+  },
+  "FR380": {
+    "country": "Kenya",
+    "year": "2022",
+    "report_type": "dhs",
+    "report_title": "Kenya Demographic and Health Survey 2022 — Volume I"
+  },
+  "FR380bis": {
+    "country": "Kenya",
+    "year": "2022",
+    "report_type": "dhs",
+    "report_title": "Kenya Demographic and Health Survey 2022 — Volume II"
+  },
+  "FR380erratum": {
+    "country": "Kenya",
+    "year": "2022",
+    "report_type": "dhs",
+    "report_title": "Kenya Demographic and Health Survey 2022 — Addendum/Erratum"
+  }
+}

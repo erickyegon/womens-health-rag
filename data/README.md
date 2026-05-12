@@ -1,73 +1,86 @@
 # Dataset
 
-This directory contains the raw and processed data for the Women's Health RAG system.
-
-## Why data/ is not committed
-
 Raw PDFs and processed text are excluded from git (see `.gitignore`).
-Reasons:
-- File size (DHS reports are 200–500MB each)
-- Licensing (DHS data requires registration)
-- Reproducibility — the ingestion pipeline recreates processed/ from raw/
 
-## Downloading the data
+## Our current dataset — files in `data/raw/`
 
-### Demographic and Health Surveys (DHS)
+| File | Country | Report | Notes |
+|------|---------|--------|-------|
+| `PR149.pdf` | Ghana | DHS 2022 | Standard single volume |
+| `PR157.pdf` | Nigeria | DHS 2021 | Standard single volume |
+| `Final-Mini-DHS-report-FR363.pdf` | Ethiopia | DHS 2019 | Mini/abbreviated report |
+| `FR380.pdf` | Kenya | DHS 2022 Vol I | Main report |
+| `FR380bis.pdf` | Kenya | DHS 2022 Vol II | Secondary volume |
+| `FR380erratum.pdf` | Kenya | DHS 2022 Addendum | Corrections/erratum |
 
-1. Register at https://dhsprogram.com/data/available-datasets.cfm (free)
-2. After approval, download the survey final reports (PDF format)
-3. Place PDFs in `data/raw/` with this naming convention:
-   `{country_iso3}_{survey_year}_dhs.pdf`
-   Example: `NGA_2021_dhs.pdf`
+## metadata.json
 
-**Recommended starting set** (all freely available after registration):
-| Country   | Year | Filename              |
-|-----------|------|-----------------------|
-| Nigeria   | 2021 | NGA_2021_dhs.pdf      |
-| Kenya     | 2022 | KEN_2022_dhs.pdf      |
-| Ghana     | 2022 | GHA_2022_dhs.pdf      |
-| Ethiopia  | 2019 | ETH_2019_dhs.pdf      |
-| Tanzania  | 2022 | TZA_2022_dhs.pdf      |
-
-### Status of Women Reports
-
-Download from: https://statusofwomendata.org/
-
-Place PDFs in `data/raw/` with naming: `status_of_women_{year}.pdf`
-
-## Metadata file
-
-Create `data/metadata.json` mapping filename stems to metadata.
-This is used by the ingestion pipeline for filtered retrieval.
+The `data/metadata.json` file maps each PDF filename stem to its metadata.
+This is what the ingestion pipeline uses for filtered retrieval.
 
 ```json
 {
-  "NGA_2021_dhs": {
+  "PR149": {
+    "country": "Ghana",
+    "year": "2022",
+    "report_type": "dhs",
+    "report_title": "Ghana Demographic and Health Survey 2022"
+  },
+  "PR157": {
     "country": "Nigeria",
     "year": "2021",
     "report_type": "dhs",
     "report_title": "Nigeria Demographic and Health Survey 2021"
   },
-  "KEN_2022_dhs": {
+  "Final-Mini-DHS-report-FR363": {
+    "country": "Ethiopia",
+    "year": "2019",
+    "report_type": "dhs",
+    "report_title": "Ethiopia Demographic and Health Survey 2019"
+  },
+  "FR380": {
     "country": "Kenya",
     "year": "2022",
     "report_type": "dhs",
-    "report_title": "Kenya Demographic and Health Survey 2022"
+    "report_title": "Kenya Demographic and Health Survey 2022 — Volume I"
+  },
+  "FR380bis": {
+    "country": "Kenya",
+    "year": "2022",
+    "report_type": "dhs",
+    "report_title": "Kenya Demographic and Health Survey 2022 — Volume II"
+  },
+  "FR380erratum": {
+    "country": "Kenya",
+    "year": "2022",
+    "report_type": "dhs",
+    "report_title": "Kenya Demographic and Health Survey 2022 — Addendum/Erratum"
   }
 }
 ```
 
+**Note on Kenya:** The three Kenya files (FR380, FR380bis, FR380erratum) all share
+`country=Kenya` and `year=2022`. The ingestion pipeline treats them as separate
+documents but the retriever can query them together with `WHERE country = 'Kenya'`.
+
 ## Running ingestion
 
-Once PDFs are in `data/raw/` and metadata.json is ready:
-
 ```bash
-# With metadata
+# Run the full pipeline against all PDFs in data/raw/
 make ingest
 
-# Or directly
+# With explicit metadata file
 python scripts/ingest.py --metadata data/metadata.json
 
-# Dry run to preview (no DB writes)
+# Dry run — preview without writing to DB
 python scripts/ingest.py --dry-run
+
+# Drop and rebuild from scratch
+python scripts/ingest.py --drop
 ```
+
+## Adding more reports
+
+1. Place the PDF in `data/raw/`
+2. Add an entry to `data/metadata.json` with the filename stem as the key
+3. Re-run `make ingest` — duplicate chunks are skipped via content hash

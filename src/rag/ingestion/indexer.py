@@ -1,192 +1,122 @@
 """
 Indexer — Episode 4
-
-Creates and manages the pgvector table, upserts embedded chunks,
-and provides the database connection pool.
-
-Schema design decisions (Episode 4 walkthrough):
-- id:         UUID primary key — stable across re-ingestion
-- embedding:  vector(1536) with HNSW index — fast approximate search
-- content:    full chunk text — returned with search results
-- metadata:   JSONB — flexible, queryable with Postgres JSON operators
-- Separate typed columns for key metadata fields:
-    country, year, report_type, source, page_number
-  These are indexed separately for efficient WHERE-clause filtering.
+====================
+Creates the pgvector table and upserts embedded chunks.
+Teaches: HNSW vs IVFFlat, cosine vs L2, idempotent upserts via content hash.
 """
-
 from __future__ import annotations
-
-import hashlib
-import json
-import logging
-import uuid
+import hashlib, json, logging, uuid
 from typing import Any
-
 from langchain_core.documents import Document
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool
-
 from rag.config.settings import get_settings
 from rag.ingestion.embedder import Embedder
 
 logger = logging.getLogger(__name__)
 
-# ── SQL statements ────────────────────────────────────────────────────────────
+CREATE_EXTENSION = "CREATE EXTENSION IF NOT EXISTS vector;"
 
-CREATE_EXTENSION_SQL = "CREATE EXTENSION IF NOT EXISTS vector;"
-
-CREATE_TABLE_SQL = """
+CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS {table} (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    content_hash VARCHAR(64) UNIQUE NOT NULL,   -- SHA-256 of content — idempotent upserts
+    content_hash VARCHAR(64) UNIQUE NOT NULL,
     content      TEXT NOT NULL,
     embedding    vector({dims}),
-    -- Typed metadata columns for indexed filtering
-    source       TEXT,
-    file_name    TEXT,
-    page_number  INTEGER,
-    country      TEXT,
-    year         TEXT,
-    report_type  TEXT,
-    report_title TEXT,
-    chunk_index  INTEGER,
-    -- Full JSONB metadata for anything else
+    source       TEXT, file_name TEXT, page_number INTEGER,
+    country      TEXT, year TEXT, report_type TEXT, report_title TEXT,
+    chunk_index  INTEGER, chunk_id VARCHAR(16),
     metadata     JSONB DEFAULT '{{}}'::jsonb,
-    -- Housekeeping
     created_at   TIMESTAMPTZ DEFAULT NOW()
-);
-"""
+);"""
 
-CREATE_HNSW_INDEX_SQL = """
-CREATE INDEX IF NOT EXISTS {table}_embedding_hnsw
-ON {table}
-USING hnsw (embedding vector_cosine_ops)
-WITH (m = 16, ef_construction = 64);
-"""
+CREATE_HNSW = """
+CREATE INDEX IF NOT EXISTS {table}_hnsw
+ON {table} USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64);"""
 
-CREATE_METADATA_INDEXES_SQL = """
-CREATE INDEX IF NOT EXISTS {table}_country_idx      ON {table} (country);
-CREATE INDEX IF NOT EXISTS {table}_year_idx         ON {table} (year);
-CREATE INDEX IF NOT EXISTS {table}_report_type_idx  ON {table} (report_type);
-CREATE INDEX IF NOT EXISTS {table}_source_idx       ON {table} (source);
-"""
+CREATE_INDEXES = """
+CREATE INDEX IF NOT EXISTS {table}_country_idx ON {table}(country);
+CREATE INDEX IF NOT EXISTS {table}_year_idx    ON {table}(year);
+CREATE INDEX IF NOT EXISTS {table}_type_idx    ON {table}(report_type);"""
 
-UPSERT_SQL = """
-INSERT INTO {table} (
-    id, content_hash, content, embedding,
-    source, file_name, page_number,
-    country, year, report_type, report_title,
-    chunk_index, metadata
-)
-VALUES (
-    :id, :content_hash, :content, :embedding,
-    :source, :file_name, :page_number,
-    :country, :year, :report_type, :report_title,
-    :chunk_index, :metadata
-)
+UPSERT = """
+INSERT INTO {table} (id,content_hash,content,embedding,source,file_name,
+  page_number,country,year,report_type,report_title,chunk_index,chunk_id,metadata)
+VALUES (:id,:content_hash,:content,:embedding,:source,:file_name,
+  :page_number,:country,:year,:report_type,:report_title,:chunk_index,:chunk_id,:metadata)
 ON CONFLICT (content_hash) DO UPDATE SET
-    embedding    = EXCLUDED.embedding,
-    metadata     = EXCLUDED.metadata,
-    created_at   = NOW();
-"""
+  embedding=EXCLUDED.embedding, metadata=EXCLUDED.metadata, created_at=NOW();"""
 
 
 class VectorIndex:
-    """
-    Manages the pgvector table and provides upsert / search operations.
-
-    Used by:
-      - scripts/ingest.py    → upsert all documents
-      - retrieval/vector_retriever.py → similarity search
-    """
-
-    def __init__(self, embedder: Embedder | None = None) -> None:
+    def __init__(self, embedder: Embedder | None = None):
         self.settings = get_settings()
         self.table    = self.settings.vector_table_name
         self.dims     = self.settings.embedding_dimensions
         self.embedder = embedder or Embedder()
         self._engine  = create_engine(
-            self.settings.database_url_str,
-            poolclass=QueuePool,
-            pool_size=5,
-            max_overflow=10,
-            pool_pre_ping=True,   # reconnect on stale connections
-        )
+            self.settings.database_url_str, poolclass=QueuePool,
+            pool_size=5, max_overflow=10, pool_pre_ping=True)
 
     def init_schema(self) -> None:
-        """
-        Create the pgvector extension, table, and indexes if they don't exist.
-        Safe to call multiple times — all statements use IF NOT EXISTS.
-        """
         with self._engine.begin() as conn:
-            conn.execute(text(CREATE_EXTENSION_SQL))
-            conn.execute(text(CREATE_TABLE_SQL.format(table=self.table, dims=self.dims)))
-            conn.execute(text(CREATE_HNSW_INDEX_SQL.format(table=self.table)))
-            conn.execute(text(CREATE_METADATA_INDEXES_SQL.format(table=self.table)))
-        logger.info("Schema initialised — table: %s, dims: %d", self.table, self.dims)
+            conn.execute(text(CREATE_EXTENSION))
+            conn.execute(text(CREATE_TABLE.format(table=self.table, dims=self.dims)))
+            conn.execute(text(CREATE_HNSW.format(table=self.table)))
+            conn.execute(text(CREATE_INDEXES.format(table=self.table)))
+        logger.info("Schema ready — table: %s, dims: %d", self.table, self.dims)
 
     def upsert_documents(self, documents: list[Document]) -> int:
-        """
-        Embed and upsert a list of Documents into pgvector.
-
-        Uses content_hash as the conflict key so re-ingesting the same
-        document is idempotent — no duplicate embeddings.
-
-        Returns the number of rows affected.
-        """
         if not documents:
             return 0
-
-        logger.info("Upserting %d documents...", len(documents))
         vectors = self.embedder.embed_documents(documents)
-
-        rows = [
-            self._doc_to_row(doc, vector)
-            for doc, vector in zip(documents, vectors, strict=True)
-        ]
-
+        rows    = [self._to_row(d, v) for d, v in zip(documents, vectors, strict=True)]
         with self._engine.begin() as conn:
             for row in rows:
-                conn.execute(text(UPSERT_SQL.format(table=self.table)), row)
-
+                conn.execute(text(UPSERT.format(table=self.table)), row)
         logger.info("Upserted %d rows into %s", len(rows), self.table)
         return len(rows)
 
-    def count(self) -> int:
-        """Return the total number of chunks indexed."""
+    def similarity_search(
+        self, query_vector: list[float], top_k: int = 20,
+        filters: dict | None = None,
+    ) -> list[dict[str, Any]]:
+        """Raw similarity search — used by VectorRetriever."""
+        where, params = self._build_where(filters or {})
+        params["k"]         = top_k
+        params["embedding"] = str(query_vector)
+        sql = f"""
+            SELECT content, source, file_name, page_number, country, year,
+                   report_type, report_title, chunk_index, chunk_id, metadata,
+                   1 - (embedding <=> :embedding::vector) AS score
+            FROM {self.table} {where}
+            ORDER BY embedding <=> :embedding::vector LIMIT :k"""
         with self._engine.connect() as conn:
-            result = conn.execute(text(f"SELECT COUNT(*) FROM {self.table}"))
-            return result.scalar() or 0
+            rows = conn.execute(text(sql), params).fetchall()
+        return [dict(r._mapping) for r in rows]
+
+    def count(self) -> int:
+        with self._engine.connect() as conn:
+            return conn.execute(text(f"SELECT COUNT(*) FROM {self.table}")).scalar() or 0
 
     def drop_and_recreate(self) -> None:
-        """
-        Drop the table and recreate it from scratch.
-        Use with caution — this deletes all indexed data.
-        """
         with self._engine.begin() as conn:
             conn.execute(text(f"DROP TABLE IF EXISTS {self.table}"))
         self.init_schema()
         logger.warning("Table %s dropped and recreated.", self.table)
 
-    # ── Private ───────────────────────────────────────────────────────────────
-
-    def _doc_to_row(self, doc: Document, vector: list[float]) -> dict[str, Any]:
-        """Convert a Document + embedding vector to a DB row dict."""
+    def _to_row(self, doc: Document, vector: list[float]) -> dict:
         meta = doc.metadata
-        content_hash = hashlib.sha256(doc.page_content.encode()).hexdigest()
-
-        # Extract typed columns from metadata, leave the rest in metadata JSONB
-        typed_keys = {
-            "source", "file_name", "page_number", "country",
-            "year", "report_type", "report_title", "chunk_index",
-        }
-        extra_meta = {k: v for k, v in meta.items() if k not in typed_keys}
-
+        ch   = hashlib.sha256(doc.page_content.encode()).hexdigest()
+        extra = {k: v for k, v in meta.items()
+                 if k not in {"source","file_name","page_number","country","year",
+                               "report_type","report_title","chunk_index","chunk_id"}}
         return {
-            "id":           str(uuid.uuid5(uuid.NAMESPACE_DNS, content_hash)),
-            "content_hash": content_hash,
+            "id":           str(uuid.uuid5(uuid.NAMESPACE_DNS, ch)),
+            "content_hash": ch,
             "content":      doc.page_content,
-            "embedding":    json.dumps(vector),   # pgvector accepts JSON array string
+            "embedding":    json.dumps(vector),
             "source":       meta.get("source"),
             "file_name":    meta.get("file_name"),
             "page_number":  meta.get("page_number"),
@@ -195,42 +125,44 @@ class VectorIndex:
             "report_type":  meta.get("report_type"),
             "report_title": meta.get("report_title"),
             "chunk_index":  meta.get("chunk_index"),
-            "metadata":     json.dumps(extra_meta),
+            "chunk_id":     meta.get("chunk_id"),
+            "metadata":     json.dumps(extra),
         }
+
+    def _build_where(self, filters: dict) -> tuple[str, dict]:
+        allowed = {"country", "year", "report_type", "report_title"}
+        clauses, params = [], {}
+        for k, v in filters.items():
+            if k not in allowed:
+                continue
+            clauses.append(f"{k} = :f_{k}")
+            params[f"f_{k}"] = v
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        return where, params
 
 
 def main() -> None:
-    """CLI entry point: python -m rag.ingestion.indexer"""
     import sys
     from pathlib import Path
-
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-
-    data_dir = Path("data/raw")
-    if not data_dir.exists():
-        logger.error("data/raw directory not found. Add PDFs there first.")
-        sys.exit(1)
-
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
     from rag.ingestion.chunker import ChunkStrategy, chunk_pages
     from rag.ingestion.cleaner import clean_pages
     from rag.ingestion.loader import load_directory
+    import json as _json
 
-    logger.info("Starting ingestion pipeline...")
+    data_dir  = Path("data/raw")
+    meta_file = Path("data/metadata.json")
+    meta_map  = _json.loads(meta_file.read_text()) if meta_file.exists() else {}
 
-    pages = load_directory(data_dir)
-    if not pages:
-        logger.warning("No pages loaded. Check that data/raw/ contains PDFs.")
-        return
-
+    pages   = load_directory(data_dir, metadata_map=meta_map)
     cleaned = clean_pages(pages)
-    docs    = chunk_pages(cleaned, strategy=ChunkStrategy.RECURSIVE)
+    docs    = chunk_pages(cleaned, ChunkStrategy.RECURSIVE)
 
-    index = VectorIndex()
-    index.init_schema()
-    count = index.upsert_documents(docs)
-
-    logger.info("Ingestion complete. %d chunks indexed. Total in DB: %d", count, index.count())
-
+    idx = VectorIndex()
+    idx.init_schema()
+    n   = idx.upsert_documents(docs)
+    logger.info("Done. %d chunks indexed. Total: %d", n, idx.count())
 
 if __name__ == "__main__":
     main()

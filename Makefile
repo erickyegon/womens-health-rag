@@ -36,8 +36,14 @@ test-e2e: ## Run end-to-end tests (needs full docker stack)
 	uv run pytest tests/e2e/ -v
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
-ingest: ## Run full PDF ingestion pipeline
-	uv run python scripts/ingest.py
+ingest: ## Run full PDF ingestion pipeline (basic)
+	uv run python scripts/ingest.py --metadata data/metadata.json
+
+ingest-multimodal: ## Run multimodal ingestion (Docling + GPT-4o + prose) — Episode 2B
+	uv run python scripts/ingest.py --multimodal --metadata data/metadata.json
+
+ingest-docling: ## Run Docling-only ingestion (no GPT-4o vision costs)
+	uv run python scripts/ingest.py --multimodal --no-vision --metadata data/metadata.json
 
 eval: ## Run RAGAS evaluation suite
 	uv run python scripts/eval.py
