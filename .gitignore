@@ -1,55 +1,44 @@
-# Environment
-.env
-.venv
+# Virtual environments
+.venv/
 venv/
+env/
+ENV/
+
+# Python cache
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
+*.py[cod]
+*$py.class
 
-# Data — never commit raw PDFs or processed text
-data/raw/
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Data (optional - keep raw data out of git)
 data/processed/
-*.pdf
+data/processed/*
+!data/processed/.gitkeep
 
-# uv
-.uv/
+# Logs
+*.log
+logs/
 
-# Build artifacts
-dist/
-build/
-*.egg-info/
+# Environment variables
+.env
+.env.local
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-coverage.xml
-
-# Type checking
-.mypy_cache/
-
-# IDE
-.vscode/settings.json
-.idea/
-*.swp
-*.swo
+# VS Code / Codespaces
+.vscode/
+.devcontainer/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Docker
-docker-compose.override.yml
+# Large files
+*.pdf
+*.zip
+*.tar.gz
+*.rar
 
-# Notebooks (clear outputs before committing)
-.ipynb_checkpoints/
-
-# LangGraph checkpoints (local SQLite)
-*.db
-checkpoints/
-
-# Evaluation outputs (tracked in docs/ instead)
-eval_results/
-*.csv
+# Only ignore large PDFs if you want (remove if you prefer to track them)
+# data/raw/*.pdf
