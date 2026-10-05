@@ -4,7 +4,6 @@ Shared pytest fixtures available to all test modules.
 Fixtures defined here are auto-discovered by pytest.
 """
 
-import os
 import pytest
 
 
@@ -15,16 +14,17 @@ def mock_env(monkeypatch):
     Prevents tests from accidentally reading a real .env file.
     """
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-mock-key-not-real")
-    monkeypatch.setenv("DATABASE_URL",   "postgresql://rag:rag@localhost:5432/rag_test")
-    monkeypatch.setenv("CHUNK_SIZE",     "800")
-    monkeypatch.setenv("CHUNK_OVERLAP",  "150")
-    monkeypatch.setenv("LOG_LEVEL",      "WARNING")  # suppress noise in tests
+    monkeypatch.setenv("DATABASE_URL", "postgresql://rag:rag@localhost:5432/rag_test")
+    monkeypatch.setenv("CHUNK_SIZE", "800")
+    monkeypatch.setenv("CHUNK_OVERLAP", "150")
+    monkeypatch.setenv("LOG_LEVEL", "WARNING")  # suppress noise in tests
 
 
 @pytest.fixture
 def sample_raw_page():
     """A realistic RawPage fixture for testing."""
     from rag.ingestion.loader import RawPage
+
     return RawPage(
         text=(
             "The maternal mortality ratio in Nigeria declined from 576 per 100,000 live births "
@@ -47,4 +47,5 @@ def sample_raw_page():
 def sample_documents(sample_raw_page):
     """Pre-chunked Document fixtures."""
     from rag.ingestion.chunker import ChunkStrategy, chunk_pages
+
     return chunk_pages([sample_raw_page], strategy=ChunkStrategy.RECURSIVE, chunk_size=200)

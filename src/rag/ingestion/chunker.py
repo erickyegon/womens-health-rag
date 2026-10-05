@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from langchain_core.documents import Document
@@ -50,15 +50,17 @@ logger = logging.getLogger(__name__)
 
 # ── Strategy enum ─────────────────────────────────────────────────────────────
 
-class ChunkStrategy(str, Enum):
-    FIXED        = "fixed"
-    RECURSIVE    = "recursive"    # default throughout the course
-    SENTENCE     = "sentence"
-    PARENT_CHILD = "parent_child" # introduced conceptually in Episode 2
-    SEMANTIC     = "semantic"     # full implementation in Episode 15
+
+class ChunkStrategy(StrEnum):
+    FIXED = "fixed"
+    RECURSIVE = "recursive"  # default throughout the course
+    SENTENCE = "sentence"
+    PARENT_CHILD = "parent_child"  # introduced conceptually in Episode 2
+    SEMANTIC = "semantic"  # full implementation in Episode 15
 
 
 # ── Result types ──────────────────────────────────────────────────────────────
+
 
 @dataclass
 class ChunkResult:
@@ -66,9 +68,10 @@ class ChunkResult:
     Returned by chunk_pages() — bundles the documents with their statistics.
     Makes it easy to compare strategies in the notebook without re-running.
     """
+
     documents: list[Document]
-    strategy:  str
-    stats:     dict[str, Any]
+    strategy: str
+    stats: dict[str, Any]
 
     def __repr__(self) -> str:
         s = self.stats
@@ -86,11 +89,13 @@ class ParentChildPair:
     A parent chunk paired with its child sub-chunks.
     Used in Episode 2 to introduce the concept; full implementation in Episode 15.
     """
-    parent:   Document
+
+    parent: Document
     children: list[Document]
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
+
 
 def chunk_pages(
     pages: list[RawPage],
@@ -119,9 +124,9 @@ def chunk_pages(
         r2 = chunk_pages(pages, ChunkStrategy.RECURSIVE, return_result=True)
         compare_strategies([r1, r2])
     """
-    settings   = get_settings()
-    chunk_size = chunk_size    or settings.chunk_size
-    overlap    = chunk_overlap or settings.chunk_overlap
+    settings = get_settings()
+    chunk_size = chunk_size or settings.chunk_size
+    overlap = chunk_overlap or settings.chunk_overlap
 
     if strategy == ChunkStrategy.SEMANTIC:
         docs = _semantic_chunk(pages, chunk_size)
@@ -129,7 +134,7 @@ def chunk_pages(
         docs = _parent_child_chunk(pages, chunk_size, overlap)
     else:
         splitter = _get_splitter(strategy, chunk_size, overlap)
-        docs     = _apply_splitter(pages, splitter, strategy)
+        docs = _apply_splitter(pages, splitter, strategy)
 
     stats = chunk_stats(docs)
     _log_stats(stats, strategy)
@@ -155,18 +160,19 @@ def chunk_stats(docs: list[Document]) -> dict[str, Any]:
         return {}
 
     import statistics
+
     char_counts = [len(d.page_content) for d in docs]
     return {
-        "total_chunks":  len(docs),
-        "avg_chars":     round(sum(char_counts) / len(char_counts)),
-        "median_chars":  round(statistics.median(char_counts)),
-        "std_chars":     round(statistics.stdev(char_counts)) if len(char_counts) > 1 else 0,
-        "min_chars":     min(char_counts),
-        "max_chars":     max(char_counts),
-        "total_chars":   sum(char_counts),
+        "total_chunks": len(docs),
+        "avg_chars": round(sum(char_counts) / len(char_counts)),
+        "median_chars": round(statistics.median(char_counts)),
+        "std_chars": round(statistics.stdev(char_counts)) if len(char_counts) > 1 else 0,
+        "min_chars": min(char_counts),
+        "max_chars": max(char_counts),
+        "total_chars": sum(char_counts),
         # Quality indicators
-        "short_chunks":  sum(1 for c in char_counts if c < 100),   # likely noise
-        "long_chunks":   sum(1 for c in char_counts if c > 1200),  # may exceed context
+        "short_chunks": sum(1 for c in char_counts if c < 100),  # likely noise
+        "long_chunks": sum(1 for c in char_counts if c > 1200),  # may exceed context
     }
 
 
@@ -210,8 +216,8 @@ def compare_strategies(results: list[ChunkResult]) -> None:
 def build_parent_child_pairs(
     pages: list[RawPage],
     parent_size: int = 1600,
-    child_size:  int = 400,
-    overlap:     int = 50,
+    child_size: int = 400,
+    overlap: int = 50,
 ) -> list[ParentChildPair]:
     """
     Build parent-child chunk pairs for the parent-child retrieval pattern.
@@ -240,7 +246,7 @@ def build_parent_child_pairs(
          we look up its parent and pass THAT to the LLM. More context, less noise."
     """
     parent_splitter = _get_splitter(ChunkStrategy.RECURSIVE, parent_size, 0)
-    child_splitter  = _get_splitter(ChunkStrategy.RECURSIVE, child_size, overlap)
+    child_splitter = _get_splitter(ChunkStrategy.RECURSIVE, child_size, overlap)
 
     pairs: list[ParentChildPair] = []
 
@@ -253,32 +259,34 @@ def build_parent_child_pairs(
 
         for p_idx, parent_doc in enumerate(parent_docs):
             parent_id = f"{page.source_file}::p{page.page_number}::chunk{p_idx}"
-            parent_doc.metadata["chunk_id"]       = parent_id
-            parent_doc.metadata["chunk_type"]     = "parent"
-            parent_doc.metadata["chunk_index"]    = p_idx
+            parent_doc.metadata["chunk_id"] = parent_id
+            parent_doc.metadata["chunk_type"] = "parent"
+            parent_doc.metadata["chunk_index"] = p_idx
             parent_doc.metadata["chunk_strategy"] = "parent_child"
 
             # Split parent into children
             child_docs = child_splitter.split_documents([parent_doc])
             for c_idx, child in enumerate(child_docs):
-                child.metadata["parent_id"]       = parent_id
-                child.metadata["chunk_type"]      = "child"
-                child.metadata["child_index"]     = c_idx
-                child.metadata["char_count"]      = len(child.page_content)
-                child.metadata["chunk_strategy"]  = "parent_child"
+                child.metadata["parent_id"] = parent_id
+                child.metadata["chunk_type"] = "child"
+                child.metadata["child_index"] = c_idx
+                child.metadata["char_count"] = len(child.page_content)
+                child.metadata["chunk_strategy"] = "parent_child"
 
             pairs.append(ParentChildPair(parent=parent_doc, children=child_docs))
 
     total_children = sum(len(p.children) for p in pairs)
     logger.info(
         "Parent-child chunking: %d parents → %d children (avg %.1f children/parent)",
-        len(pairs), total_children,
+        len(pairs),
+        total_children,
         total_children / len(pairs) if pairs else 0,
     )
     return pairs
 
 
 # ── Splitter factories ─────────────────────────────────────────────────────────
+
 
 def _get_splitter(
     strategy: ChunkStrategy,
@@ -308,7 +316,7 @@ def _fixed_splitter(chunk_size: int, overlap: int) -> RecursiveCharacterTextSpli
     return RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=overlap,
-        separators=[""],        # force character-level split only
+        separators=[""],  # force character-level split only
         length_function=len,
         add_start_index=True,
     )
@@ -340,15 +348,15 @@ def _recursive_splitter(chunk_size: int, overlap: int) -> RecursiveCharacterText
         chunk_size=chunk_size,
         chunk_overlap=overlap,
         separators=[
-            "\n\n",   # paragraph — highest priority
-            "\n",     # line break
-            ". ",     # sentence (with trailing space to avoid decimals)
+            "\n\n",  # paragraph — highest priority
+            "\n",  # line break
+            ". ",  # sentence (with trailing space to avoid decimals)
             "! ",
             "? ",
             "; ",
             ", ",
             " ",
-            "",       # character fallback
+            "",  # character fallback
         ],
         length_function=len,
         add_start_index=True,
@@ -373,10 +381,10 @@ def _sentence_splitter(chunk_size: int, overlap: int) -> RecursiveCharacterTextS
         chunk_size=chunk_size,
         chunk_overlap=overlap,
         separators=[
-            ". ",     # sentence — now highest priority
+            ". ",  # sentence — now highest priority
             "! ",
             "? ",
-            "\n\n",   # paragraph
+            "\n\n",  # paragraph
             "\n",
             "; ",
             ", ",
@@ -389,6 +397,7 @@ def _sentence_splitter(chunk_size: int, overlap: int) -> RecursiveCharacterTextS
 
 
 # ── Core processing ───────────────────────────────────────────────────────────
+
 
 def _apply_splitter(
     pages: list[RawPage],
@@ -406,15 +415,16 @@ def _apply_splitter(
         chunks = splitter.split_documents([base_doc])
 
         for i, chunk in enumerate(chunks):
-            chunk.metadata["chunk_index"]    = i
-            chunk.metadata["chunk_count"]    = len(chunks)
-            chunk.metadata["char_count"]     = len(chunk.page_content)
+            chunk.metadata["chunk_index"] = i
+            chunk.metadata["chunk_count"] = len(chunks)
+            chunk.metadata["char_count"] = len(chunk.page_content)
             chunk.metadata["chunk_strategy"] = strategy.value
             # Stable content-based ID — used for idempotent pgvector upserts
             import hashlib
-            chunk.metadata["chunk_id"] = hashlib.sha256(
-                chunk.page_content.encode()
-            ).hexdigest()[:16]
+
+            chunk.metadata["chunk_id"] = hashlib.sha256(chunk.page_content.encode()).hexdigest()[
+                :16
+            ]
 
         all_docs.extend(chunks)
 
@@ -456,18 +466,18 @@ def _semantic_chunk(pages: list[RawPage], chunk_size: int) -> list[Document]:
             "This strategy is fully introduced in Episode 15."
         )
 
-    settings   = get_settings()
+    settings = get_settings()
     embeddings = OpenAIEmbeddings(model=settings.openai_embedding_model)
-    splitter   = SemanticChunker(embeddings, breakpoint_threshold_type="percentile")
+    splitter = SemanticChunker(embeddings, breakpoint_threshold_type="percentile")
 
     all_docs: list[Document] = []
     for page in pages:
         base_doc = Document(page_content=page.text, metadata=_build_metadata(page))
-        chunks   = splitter.split_documents([base_doc])
+        chunks = splitter.split_documents([base_doc])
         for i, chunk in enumerate(chunks):
-            chunk.metadata["chunk_index"]    = i
-            chunk.metadata["chunk_count"]    = len(chunks)
-            chunk.metadata["char_count"]     = len(chunk.page_content)
+            chunk.metadata["chunk_index"] = i
+            chunk.metadata["chunk_count"] = len(chunks)
+            chunk.metadata["char_count"] = len(chunk.page_content)
             chunk.metadata["chunk_strategy"] = "semantic"
         all_docs.extend(chunks)
 
@@ -475,6 +485,7 @@ def _semantic_chunk(pages: list[RawPage], chunk_size: int) -> list[Document]:
 
 
 # ── Metadata builder ──────────────────────────────────────────────────────────
+
 
 def _build_metadata(page: RawPage) -> dict:
     """
@@ -500,18 +511,19 @@ def _build_metadata(page: RawPage) -> dict:
          system attached country and year to every single chunk at index time."
     """
     return {
-        "source":       page.source_file,
-        "file_name":    page.file_name,
-        "page_number":  page.page_number,
-        "total_pages":  page.total_pages,
-        "country":      page.country,
-        "year":         page.year,
-        "report_type":  page.report_type,
+        "source": page.source_file,
+        "file_name": page.file_name,
+        "page_number": page.page_number,
+        "total_pages": page.total_pages,
+        "country": page.country,
+        "year": page.year,
+        "report_type": page.report_type,
         "report_title": page.report_title,
     }
 
 
 # ── Logging ───────────────────────────────────────────────────────────────────
+
 
 def _log_stats(stats: dict, strategy: ChunkStrategy) -> None:
     if not stats:

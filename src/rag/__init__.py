@@ -9,4 +9,4 @@ Episode 1: Introduction and environment setup
 """
 
 __version__ = "0.1.0"
-__author__  = "Erick K Yegon"
+__author__ = "Erick K Yegon"

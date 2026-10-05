@@ -4,12 +4,16 @@ Hybrid Retriever — Episode 6
 Combines vector and BM25 results using Reciprocal Rank Fusion (RRF).
 Teaching: why neither vector nor keyword alone is sufficient.
 """
+
 from __future__ import annotations
+
 import logging
 from collections import defaultdict
+
 from langchain_core.documents import Document
-from rag.retrieval.vector_retriever import VectorRetriever
+
 from rag.retrieval.bm25_retriever import BM25Retriever
+from rag.retrieval.vector_retriever import VectorRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +37,12 @@ def reciprocal_rank_fusion(
          combined score than a document ranked #5 by both. It rewards
          consistency across retrieval systems, not score magnitude."
     """
-    scores: dict[str, float]    = defaultdict(float)
-    docs:   dict[str, Document] = {}
+    scores: dict[str, float] = defaultdict(float)
+    docs: dict[str, Document] = {}
 
     for result_list in result_lists:
         for rank, doc in enumerate(result_list, start=1):
-            key = doc.page_content[:100]   # stable identifier
+            key = doc.page_content[:100]  # stable identifier
             scores[key] += 1.0 / (k + rank)
             if key not in docs:
                 docs[key] = doc
@@ -47,7 +51,7 @@ def reciprocal_rank_fusion(
     results = []
     for key, score in ranked:
         doc = docs[key]
-        d   = Document(
+        d = Document(
             page_content=doc.page_content,
             metadata={**doc.metadata, "rrf_score": round(score, 6)},
         )
@@ -63,42 +67,46 @@ class HybridRetriever:
         hybrid = HybridRetriever(vector_retriever, bm25_retriever)
         docs   = hybrid.retrieve("maternal mortality Kenya 2022")
     """
+
     def __init__(
         self,
         vector_retriever: VectorRetriever,
-        bm25_retriever:   BM25Retriever,
+        bm25_retriever: BM25Retriever,
         vector_top_k: int = 20,
-        bm25_top_k:   int = 20,
-        final_top_n:  int = 20,
-        rrf_k:        int = 60,
+        bm25_top_k: int = 20,
+        final_top_n: int = 20,
+        rrf_k: int = 60,
     ):
-        self.vector   = vector_retriever
-        self.bm25     = bm25_retriever
-        self.v_top_k  = vector_top_k
-        self.b_top_k  = bm25_top_k
-        self.final_n  = final_top_n
-        self.rrf_k    = rrf_k
+        self.vector = vector_retriever
+        self.bm25 = bm25_retriever
+        self.v_top_k = vector_top_k
+        self.b_top_k = bm25_top_k
+        self.final_n = final_top_n
+        self.rrf_k = rrf_k
 
     def retrieve(self, query: str, filters: dict | None = None) -> list[Document]:
         vector_docs = self.vector.retrieve(query, top_k=self.v_top_k, filters=filters)
-        bm25_docs   = self.bm25.retrieve(query, top_k=self.b_top_k)
-        fused       = reciprocal_rank_fusion(
-            [vector_docs, bm25_docs], k=self.rrf_k, top_n=self.final_n)
+        bm25_docs = self.bm25.retrieve(query, top_k=self.b_top_k)
+        fused = reciprocal_rank_fusion([vector_docs, bm25_docs], k=self.rrf_k, top_n=self.final_n)
         logger.info(
             "Hybrid: vector=%d bm25=%d → fused=%d",
-            len(vector_docs), len(bm25_docs), len(fused),
+            len(vector_docs),
+            len(bm25_docs),
+            len(fused),
         )
         return fused
 
     def as_langchain_retriever(self):
-        from langchain_core.retrievers import BaseRetriever
         from typing import Any
+
+        from langchain_core.retrievers import BaseRetriever
 
         outer = self
 
         class HybridLC(BaseRetriever):
             def _get_relevant_documents(self, query: str, **_: Any) -> list[Document]:
                 return outer.retrieve(query)
+
             async def _aget_relevant_documents(self, query: str, **_: Any) -> list[Document]:
                 return self._get_relevant_documents(query)
 

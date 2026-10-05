@@ -4,10 +4,16 @@ Self-Query Retriever — Episode 7
 LLM extracts structured metadata filters from natural language queries.
 "Data from Nigeria between 2018 and 2022" → {country: Nigeria, year: [2018,2022]}
 """
+
 from __future__ import annotations
-import json, logging, re
+
+import json
+import logging
+import re
+
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
+
 from rag.config.settings import get_settings
 from rag.retrieval.vector_retriever import VectorRetriever
 
@@ -36,12 +42,15 @@ class SelfQueryRetriever:
         → filters: {country: "Kenya", year: "2022"}
         → pgvector: WHERE country='Kenya' AND year='2022'
     """
+
     def __init__(self, vector_retriever: VectorRetriever | None = None):
-        self.settings  = get_settings()
+        self.settings = get_settings()
         self.retriever = vector_retriever or VectorRetriever()
-        self._llm      = ChatOpenAI(
-            model=self.settings.openai_model, temperature=0,
-            openai_api_key=self.settings.openai_api_key.get_secret_value())  # type: ignore
+        self._llm = ChatOpenAI(
+            model=self.settings.openai_model,
+            temperature=0,
+            openai_api_key=self.settings.openai_api_key.get_secret_value(),
+        )  # type: ignore
 
     def retrieve(self, query: str, top_k: int | None = None) -> tuple[list[Document], dict]:
         """
@@ -50,15 +59,15 @@ class SelfQueryRetriever:
         """
         filters = self._extract_filters(query)
         # Remove None values
-        active  = {k: v for k, v in filters.items() if v}
-        docs    = self.retriever.retrieve(query, top_k=top_k, filters=active)
+        active = {k: v for k, v in filters.items() if v}
+        docs = self.retriever.retrieve(query, top_k=top_k, filters=active)
         logger.info("Self-query filters: %s → %d docs", active, len(docs))
         return docs, active
 
     def _extract_filters(self, query: str) -> dict:
-        prompt   = EXTRACT_FILTERS_PROMPT.format(query=query)
+        prompt = EXTRACT_FILTERS_PROMPT.format(query=query)
         response = self._llm.invoke(prompt)
-        text     = response.content.strip()
+        text = response.content.strip()
         # Strip markdown code fences if present
         text = re.sub(r"```(?:json)?\n?", "", text).strip()
         try:

@@ -22,7 +22,7 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
 from rich.table import Table
 
 # Add src/ to path so we can import rag.*
@@ -34,7 +34,7 @@ from rag.ingestion.embedder import Embedder, EmbedderBackend
 from rag.ingestion.indexer import VectorIndex
 from rag.ingestion.loader import load_directory
 
-app     = typer.Typer(help="Ingest PDFs into the womens-health-rag vector index.")
+app = typer.Typer(help="Ingest PDFs into the womens-health-rag vector index.")
 console = Console()
 
 logging.basicConfig(
@@ -48,22 +48,26 @@ logging.basicConfig(
 def main(
     data_dir: Path = typer.Option(
         Path("data/raw"),
-        "--data-dir", "-d",
+        "--data-dir",
+        "-d",
         help="Directory containing PDF files.",
     ),
     metadata_file: Path | None = typer.Option(
         None,
-        "--metadata", "-m",
+        "--metadata",
+        "-m",
         help="JSON file mapping filename stems to metadata (country, year, etc.).",
     ),
     strategy: ChunkStrategy = typer.Option(
         ChunkStrategy.RECURSIVE,
-        "--strategy", "-s",
+        "--strategy",
+        "-s",
         help="Chunking strategy: fixed | recursive | semantic.",
     ),
     backend: EmbedderBackend = typer.Option(
         EmbedderBackend.OPENAI,
-        "--backend", "-b",
+        "--backend",
+        "-b",
         help="Embedding backend: openai | onnx.",
     ),
     dry_run: bool = typer.Option(
@@ -115,16 +119,21 @@ def main(
     if multimodal:
         # Multimodal path: Docling + Vision + Prose
         from rag.ingestion.multimodal_loader import MultimodalLoader, element_stats
+
         with Progress(SpinnerColumn(), TextColumn("{task.description}"), console=console) as prog:
             t = prog.add_task("Multimodal loading (Docling + Vision)...", total=None)
             mm_loader = MultimodalLoader(vision_enabled=vision_flag, table_prose=True)
-            elements  = mm_loader.load_directory(data_dir, metadata_map=metadata_map)
-            docs      = mm_loader.to_documents(elements)
+            elements = mm_loader.load_directory(data_dir, metadata_map=metadata_map)
+            docs = mm_loader.to_documents(elements)
             prog.update(t, completed=True)
 
         stats = element_stats(elements)
-        console.print(f"  [green]✓[/] Loaded [bold]{stats['total']}[/] elements → [bold]{len(docs)}[/] documents")
-        console.print(f"     Text: {stats['text']} | Tables: {stats['tables']} (×2 w/prose) | Figures: {stats['figures']}")
+        console.print(
+            f"  [green]✓[/] Loaded [bold]{stats['total']}[/] elements → [bold]{len(docs)}[/] documents"
+        )
+        console.print(
+            f"     Text: {stats['text']} | Tables: {stats['tables']} (×2 w/prose) | Figures: {stats['figures']}"
+        )
 
         # Skip basic clean/chunk steps — multimodal docs are already structured
         if dry_run:
@@ -132,7 +141,7 @@ def main(
             return
 
         embedder = Embedder(backend=backend)
-        index    = VectorIndex(embedder=embedder)
+        index = VectorIndex(embedder=embedder)
         if drop_existing:
             console.print("[yellow]⚠ Dropping existing index...[/]")
             index.drop_and_recreate()
@@ -141,11 +150,16 @@ def main(
 
         console.print(f"\n[bold]Upserting {len(docs)} documents into pgvector...")
         batch_size = 50
-        with Progress(SpinnerColumn(), TextColumn("{task.description}"),
-                      BarColumn(), TaskProgressColumn(), console=console) as prog:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            console=console,
+        ) as prog:
             t = prog.add_task("Upserting...", total=len(docs))
             for i in range(0, len(docs), batch_size):
-                batch = docs[i:i + batch_size]
+                batch = docs[i : i + batch_size]
                 index.upsert_documents(batch)
                 prog.advance(t, len(batch))
 
@@ -195,7 +209,7 @@ def main(
     # ── Step 4: Embed + Upsert ────────────────────────────────────────────────
     console.print(f"\n[bold]Step 4/5:[/] Embedding with backend=[bold]{backend.value}[/]")
     embedder = Embedder(backend=backend)
-    index    = VectorIndex(embedder=embedder)
+    index = VectorIndex(embedder=embedder)
 
     if drop_existing:
         console.print("[yellow]⚠ Dropping existing index...[/]")
@@ -206,8 +220,11 @@ def main(
     console.print(f"\n[bold]Step 5/5:[/] Upserting {len(docs)} chunks into pgvector")
     batch_size = 50
     with Progress(
-        SpinnerColumn(), TextColumn("{task.description}"),
-        BarColumn(), TaskProgressColumn(), console=console,
+        SpinnerColumn(),
+        TextColumn("{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        console=console,
     ) as prog:
         t = prog.add_task("Upserting...", total=len(docs))
         for i in range(0, len(docs), batch_size):
@@ -229,11 +246,11 @@ def _print_stats_table(stats: dict) -> None:
     table = Table(show_header=True, header_style="bold")
     table.add_column("Metric")
     table.add_column("Value", justify="right")
-    table.add_row("Total chunks",  str(stats["total_chunks"]))
-    table.add_row("Avg chars",     str(stats["avg_chars"]))
-    table.add_row("Min chars",     str(stats["min_chars"]))
-    table.add_row("Max chars",     str(stats["max_chars"]))
-    table.add_row("Total chars",   f"{stats['total_chars']:,}")
+    table.add_row("Total chunks", str(stats["total_chunks"]))
+    table.add_row("Avg chars", str(stats["avg_chars"]))
+    table.add_row("Min chars", str(stats["min_chars"]))
+    table.add_row("Max chars", str(stats["max_chars"]))
+    table.add_row("Total chars", f"{stats['total_chars']:,}")
     console.print(table)
 
 

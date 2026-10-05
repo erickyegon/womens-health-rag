@@ -1,4 +1,5 @@
 """Health check endpoints — Episode 25."""
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -6,7 +7,7 @@ router = APIRouter()
 
 
 class HealthResponse(BaseModel):
-    status:  str
+    status: str
     version: str
 
 
@@ -20,9 +21,11 @@ async def readiness():
     """Readiness probe — checks DB connectivity."""
     try:
         from rag.ingestion.indexer import VectorIndex
+
         idx = VectorIndex()
-        n   = idx.count()
+        n = idx.count()
         return {"status": "ready", "chunks_indexed": n}
     except Exception as e:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=503, detail=f"DB not ready: {e}")

@@ -4,12 +4,18 @@ Multi-hop Chain — Episode 13
 Decomposes compound questions into sub-questions and chains retrievals.
 Teaches: "How does female education affect child mortality?" → two retrievals.
 """
+
 from __future__ import annotations
-import json, logging, re
-from langchain_openai import ChatOpenAI
+
+import json
+import logging
+import re
+
 from langchain_core.documents import Document
+from langchain_openai import ChatOpenAI
+
+from rag.chains.rag_chain import format_docs
 from rag.config.settings import get_settings
-from rag.chains.rag_chain import format_docs, invoke
 from rag.retrieval.vector_retriever import VectorRetriever
 
 logger = logging.getLogger(__name__)
@@ -29,12 +35,15 @@ class MultiHopChain:
         → sub2: "under-5 child mortality rates Kenya"
         → synthesis: LLM combines both contexts into one answer
     """
+
     def __init__(self, retriever: VectorRetriever | None = None):
-        self.settings  = get_settings()
+        self.settings = get_settings()
         self.retriever = retriever or VectorRetriever()
         self._llm = ChatOpenAI(
-            model=self.settings.openai_model, temperature=0,
-            openai_api_key=self.settings.openai_api_key.get_secret_value())  # type: ignore
+            model=self.settings.openai_model,
+            temperature=0,
+            openai_api_key=self.settings.openai_api_key.get_secret_value(),
+        )  # type: ignore
 
     def invoke(self, question: str) -> dict:
         """
@@ -52,7 +61,7 @@ class MultiHopChain:
             sub_contexts.append({"question": sq, "docs": len(docs)})
 
         # Deduplicate by content
-        seen   = set()
+        seen = set()
         unique = []
         for doc in all_docs:
             key = doc.page_content[:80]
@@ -71,16 +80,16 @@ class MultiHopChain:
         answer = self._llm.invoke(synth_prompt).content
 
         return {
-            "answer":        answer,
+            "answer": answer,
             "sub_questions": sub_qs,
-            "sub_contexts":  sub_contexts,
-            "docs_used":     len(unique),
+            "sub_contexts": sub_contexts,
+            "docs_used": len(unique),
         }
 
     def _decompose(self, question: str) -> list[str]:
         msg = [
             {"role": "system", "content": DECOMPOSE_SYSTEM},
-            {"role": "user",   "content": question},
+            {"role": "user", "content": question},
         ]
         resp = self._llm.invoke(msg).content.strip()
         resp = re.sub(r"```(?:json)?\n?", "", resp).strip()

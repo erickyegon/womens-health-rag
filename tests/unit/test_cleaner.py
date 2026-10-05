@@ -9,8 +9,6 @@ Run with: make test-unit  or  pytest tests/unit/test_cleaner.py -v
 
 from __future__ import annotations
 
-import pytest
-
 from rag.ingestion.cleaner import (
     PIPELINE_STEPS,
     _collapse_whitespace,
@@ -28,8 +26,8 @@ from rag.ingestion.cleaner import (
 )
 from rag.ingestion.loader import RawPage
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 def make_page(text: str, country: str = "Nigeria", year: str = "2021") -> RawPage:
     return RawPage(
@@ -73,8 +71,8 @@ N/A N/A N/A N/A N/A
 
 # ── Step 1: Unicode normalisation ─────────────────────────────────────────────
 
-class TestNormaliseUnicode:
 
+class TestNormaliseUnicode:
     def test_fi_ligature_replaced(self):
         assert _normalise_unicode("ﬁrst result") == "first result"
 
@@ -88,7 +86,7 @@ class TestNormaliseUnicode:
         assert _normalise_unicode("eﬃciency") == "efficiency"
 
     def test_smart_quotes_replaced(self):
-        result = _normalise_unicode("\u201CHello\u201D it\u2019s fine")
+        result = _normalise_unicode("\u201cHello\u201d it\u2019s fine")
         assert '"Hello"' in result
         assert "it's" in result
 
@@ -98,17 +96,17 @@ class TestNormaliseUnicode:
         assert "\u2014" not in result
 
     def test_non_breaking_space_replaced(self):
-        result = _normalise_unicode("hello\u00A0world")
+        result = _normalise_unicode("hello\u00a0world")
         assert result == "hello world"
 
     def test_zero_width_space_removed(self):
-        result = _normalise_unicode("hello\u200Bworld")
-        assert "\u200B" not in result
+        result = _normalise_unicode("hello\u200bworld")
+        assert "\u200b" not in result
         assert "helloworld" in result
 
     def test_bom_removed(self):
-        result = _normalise_unicode("\uFEFFsome text")
-        assert "\uFEFF" not in result
+        result = _normalise_unicode("\ufeffsome text")
+        assert "\ufeff" not in result
         assert "some text" in result
 
     def test_control_characters_removed(self):
@@ -130,8 +128,8 @@ class TestNormaliseUnicode:
 
 # ── Step 2: Hyphenated line breaks ────────────────────────────────────────────
 
-class TestFixHyphenatedLinebreaks:
 
+class TestFixHyphenatedLinebreaks:
     def test_simple_word_rejoined(self):
         assert _fix_hyphenated_linebreaks("mor-\ntality") == "mortality"
 
@@ -149,7 +147,7 @@ class TestFixHyphenatedLinebreaks:
         # "2020-\n2022" — digits should NOT be merged
         text = "from 2020-\n2022"
         result = _fix_hyphenated_linebreaks(text)
-        assert "2020-" in result   # hyphen preserved
+        assert "2020-" in result  # hyphen preserved
 
     def test_compound_adjective_not_merged(self):
         # Intentional hyphen at end of line with digit follows
@@ -172,8 +170,8 @@ class TestFixHyphenatedLinebreaks:
 
 # ── Step 3: Footnote numbers ──────────────────────────────────────────────────
 
-class TestRemoveFootnoteNumbers:
 
+class TestRemoveFootnoteNumbers:
     def test_inline_footnote_removed(self):
         result = _remove_footnote_numbers("mortality rate12 was declining")
         assert "rate was" in result
@@ -211,8 +209,8 @@ class TestRemoveFootnoteNumbers:
 
 # ── Step 4: Repeated headers ──────────────────────────────────────────────────
 
-class TestRemoveRepeatedHeaders:
 
+class TestRemoveRepeatedHeaders:
     def test_allcaps_header_removed(self):
         text = "DEMOGRAPHIC AND HEALTH SURVEY 2021\nSome real content here."
         result = _remove_repeated_headers(text)
@@ -222,13 +220,13 @@ class TestRemoveRepeatedHeaders:
     def test_lone_page_number_removed(self):
         text = "Some content.\n87\nMore content."
         result = _remove_repeated_headers(text)
-        lines = [l.strip() for l in result.split("\n") if l.strip()]
+        lines = [ln.strip() for ln in result.split("\n") if ln.strip()]
         assert "87" not in lines
 
     def test_three_digit_page_number_removed(self):
         text = "Content.\n234\nMore content."
         result = _remove_repeated_headers(text)
-        lines = [l.strip() for l in result.split("\n") if l.strip()]
+        lines = [ln.strip() for ln in result.split("\n") if ln.strip()]
         assert "234" not in lines
 
     def test_chapter_pipe_footer_removed(self):
@@ -271,8 +269,8 @@ class TestRemoveRepeatedHeaders:
 
 # ── Step 5: Table artefacts ───────────────────────────────────────────────────
 
-class TestRemoveTableArtefacts:
 
+class TestRemoveTableArtefacts:
     def test_pipe_only_line_removed(self):
         text = "Content.\n| | | | |\nMore content."
         result = _remove_table_artefacts(text)
@@ -303,11 +301,11 @@ class TestRemoveTableArtefacts:
 
 # ── Step 6: Junk characters ───────────────────────────────────────────────────
 
-class TestRemoveJunkCharacters:
 
+class TestRemoveJunkCharacters:
     def test_replacement_char_removed(self):
-        result = _remove_junk_characters("hello\uFFFDworld")
-        assert "\uFFFD" not in result
+        result = _remove_junk_characters("hello\ufffdworld")
+        assert "\ufffd" not in result
 
     def test_null_bytes_removed(self):
         result = _remove_junk_characters("hello\x00world")
@@ -325,18 +323,18 @@ class TestRemoveJunkCharacters:
 
 # ── Step 7: Short noise lines ─────────────────────────────────────────────────
 
-class TestRemoveShortNoiseLines:
 
+class TestRemoveShortNoiseLines:
     def test_single_char_line_removed(self):
         text = "Content.\na\nMore content."
         result = _remove_short_noise_lines(text)
-        lines = [l for l in result.split("\n") if l.strip() == "a"]
+        lines = [ln for ln in result.split("\n") if ln.strip() == "a"]
         assert len(lines) == 0
 
     def test_two_char_line_removed(self):
         text = "Content.\nab\nMore content."
         result = _remove_short_noise_lines(text)
-        lines = [l for l in result.split("\n") if l.strip() == "ab"]
+        lines = [ln for ln in result.split("\n") if ln.strip() == "ab"]
         assert len(lines) == 0
 
     def test_three_char_line_preserved(self):
@@ -357,8 +355,8 @@ class TestRemoveShortNoiseLines:
 
 # ── Step 8: Whitespace collapse ───────────────────────────────────────────────
 
-class TestCollapseWhitespace:
 
+class TestCollapseWhitespace:
     def test_multiple_spaces_collapsed(self):
         result = _collapse_whitespace("word1   word2    word3")
         assert "  " not in result
@@ -389,8 +387,8 @@ class TestCollapseWhitespace:
 
 # ── Full pipeline ─────────────────────────────────────────────────────────────
 
-class TestCleanPage:
 
+class TestCleanPage:
     def test_returns_new_instance(self):
         page = make_page("Some text with ﬁgures and data.")
         cleaned = clean_page(page)
@@ -409,11 +407,11 @@ class TestCleanPage:
     def test_metadata_preserved(self):
         page = make_page("Some content", country="Nigeria", year="2021")
         cleaned = clean_page(page)
-        assert cleaned.country      == "Nigeria"
-        assert cleaned.year         == "2021"
-        assert cleaned.report_type  == "dhs"
-        assert cleaned.page_number  == 42
-        assert cleaned.file_name    == "PR157.pdf"
+        assert cleaned.country == "Nigeria"
+        assert cleaned.year == "2021"
+        assert cleaned.report_type == "dhs"
+        assert cleaned.page_number == 42
+        assert cleaned.file_name == "PR157.pdf"
 
     def test_hyphen_break_fixed(self):
         page = make_page("attend-\nance increased")
@@ -439,19 +437,21 @@ class TestCleanPage:
 
 
 class TestCleanPages:
-
     def test_filters_empty_pages(self):
         pages = [
-            make_page(REALISTIC_DHS_TEXT),          # real content — keep
-            make_page("   \n\n   "),                 # empty — filter
-            make_page("x"),                          # too short — filter
+            make_page(REALISTIC_DHS_TEXT),  # real content — keep
+            make_page("   \n\n   "),  # empty — filter
+            make_page("x"),  # too short — filter
             make_page("Skilled birth attendance rates in Kenya were 62%."),  # keep
         ]
         cleaned = clean_pages(pages, min_chars=80)
         assert len(cleaned) == 2
 
     def test_order_preserved(self):
-        pages = [make_page(f"This is page {i} with enough content to pass the filter threshold.") for i in range(5)]
+        pages = [
+            make_page(f"This is page {i} with enough content to pass the filter threshold.")
+            for i in range(5)
+        ]
         cleaned = clean_pages(pages)
         for i, page in enumerate(cleaned):
             assert str(i) in page.text
@@ -461,7 +461,7 @@ class TestCleanPages:
 
     def test_custom_min_chars(self):
         pages = [
-            make_page("Short."),    # 6 chars — filtered at min_chars=10
+            make_page("Short."),  # 6 chars — filtered at min_chars=10
             make_page(REALISTIC_DHS_TEXT),
         ]
         cleaned = clean_pages(pages, min_chars=10)
@@ -475,8 +475,8 @@ class TestCleanPages:
 
 # ── Pipeline introspection ────────────────────────────────────────────────────
 
-class TestStepByStepClean:
 
+class TestStepByStepClean:
     def test_returns_correct_number_of_steps(self):
         results = step_by_step_clean("Some text")
         assert len(results) == len(PIPELINE_STEPS)
@@ -493,7 +493,7 @@ class TestStepByStepClean:
     def test_chars_before_matches_previous_after(self):
         results = step_by_step_clean(REALISTIC_DHS_TEXT)
         for i in range(1, len(results)):
-            assert results[i]["chars_before"] == results[i-1]["chars_after"]
+            assert results[i]["chars_before"] == results[i - 1]["chars_after"]
 
     def test_delta_is_consistent(self):
         results = step_by_step_clean(REALISTIC_DHS_TEXT)
@@ -502,29 +502,35 @@ class TestStepByStepClean:
 
 
 class TestCleaningReport:
-
     def test_all_keys_present(self):
-        page    = make_page(REALISTIC_DHS_TEXT)
+        page = make_page(REALISTIC_DHS_TEXT)
         cleaned = clean_page(page)
-        report  = cleaning_report(page, cleaned)
+        report = cleaning_report(page, cleaned)
         expected_keys = [
-            "raw_chars", "cleaned_chars", "reduction_pct",
-            "raw_lines", "cleaned_lines", "lines_removed",
-            "raw_preview", "cleaned_preview",
+            "raw_chars",
+            "cleaned_chars",
+            "reduction_pct",
+            "raw_lines",
+            "cleaned_lines",
+            "lines_removed",
+            "raw_preview",
+            "cleaned_preview",
         ]
         for key in expected_keys:
             assert key in report
 
     def test_reduction_is_positive_for_noisy_text(self):
-        page    = make_page(REALISTIC_DHS_TEXT)
+        page = make_page(REALISTIC_DHS_TEXT)
         cleaned = clean_page(page)
-        report  = cleaning_report(page, cleaned)
+        report = cleaning_report(page, cleaned)
         assert report["reduction_pct"] > 0
 
     def test_reduction_near_zero_for_clean_text(self):
-        clean_text = "The maternal mortality ratio in Nigeria was 512 per 100,000 live births in 2021."
-        page    = make_page(clean_text)
+        clean_text = (
+            "The maternal mortality ratio in Nigeria was 512 per 100,000 live births in 2021."
+        )
+        page = make_page(clean_text)
         cleaned = clean_page(page)
-        report  = cleaning_report(page, cleaned)
+        report = cleaning_report(page, cleaned)
         # Should be very small — maybe 0 or tiny trailing space removal
         assert report["reduction_pct"] < 5

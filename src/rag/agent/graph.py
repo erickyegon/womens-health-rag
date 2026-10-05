@@ -15,17 +15,27 @@ Episode 21: LangSmith tracing
 Episode 22: human-in-the-loop checkpoints
 Episode 23: multi-agent via supervisor (separate file)
 """
+
 from __future__ import annotations
+
 import logging
 from typing import Any
+
 from langgraph.graph import END, START, StateGraph
-from langgraph.checkpoint.memory import MemorySaver
-from rag.agent.state import AgentState, initial_state
+
 from rag.agent.nodes import (
-    answer_node, direct_answer_node, grade_node,
-    hallucination_check_node, retrieve_node, rewrite_node, router_node,
-    route_after_grade, route_after_hallucination, route_after_router,
+    answer_node,
+    direct_answer_node,
+    grade_node,
+    hallucination_check_node,
+    retrieve_node,
+    rewrite_node,
+    route_after_grade,
+    route_after_hallucination,
+    route_after_router,
+    router_node,
 )
+from rag.agent.state import AgentState, initial_state
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +55,12 @@ def build_graph(checkpointer=None, human_in_loop: bool = False):
     graph = StateGraph(AgentState)
 
     # ── Add nodes ──────────────────────────────────────────────────────────────
-    graph.add_node("router",              router_node)
-    graph.add_node("retrieve",            retrieve_node)
-    graph.add_node("grade",               grade_node)
-    graph.add_node("rewrite",             rewrite_node)
-    graph.add_node("answer",              answer_node)
-    graph.add_node("direct_answer",       direct_answer_node)
+    graph.add_node("router", router_node)
+    graph.add_node("retrieve", retrieve_node)
+    graph.add_node("grade", grade_node)
+    graph.add_node("rewrite", rewrite_node)
+    graph.add_node("answer", answer_node)
+    graph.add_node("direct_answer", direct_answer_node)
     graph.add_node("hallucination_check", hallucination_check_node)
 
     # ── Entry point ────────────────────────────────────────────────────────────
@@ -76,7 +86,7 @@ def build_graph(checkpointer=None, human_in_loop: bool = False):
     graph.add_edge("rewrite", "retrieve")
 
     # ── Post-generation ───────────────────────────────────────────────────────
-    graph.add_edge("answer",        "hallucination_check")
+    graph.add_edge("answer", "hallucination_check")
     graph.add_edge("direct_answer", "hallucination_check")
 
     graph.add_conditional_edges(
@@ -95,8 +105,7 @@ def build_graph(checkpointer=None, human_in_loop: bool = False):
     return graph.compile(**compile_kwargs)
 
 
-def run_agent(question: str, thread_id: str = "default",
-              checkpointer=None, **kwargs) -> dict:
+def run_agent(question: str, thread_id: str = "default", checkpointer=None, **kwargs) -> dict:
     """
     Run the agent for a single question.
 
@@ -108,20 +117,22 @@ def run_agent(question: str, thread_id: str = "default",
     Returns:
         Final AgentState dict.
     """
-    app    = build_graph(checkpointer=checkpointer)
-    state  = initial_state(question)
+    app = build_graph(checkpointer=checkpointer)
+    state = initial_state(question)
     config = {"configurable": {"thread_id": thread_id}}
 
     final = app.invoke(state, config=config)
-    logger.info("Agent complete — answer: %s chars, grounded: %s",
-                len(final.get("answer","") or ""), final.get("grounded"))
+    logger.info(
+        "Agent complete — answer: %s chars, grounded: %s",
+        len(final.get("answer", "") or ""),
+        final.get("grounded"),
+    )
     return final
 
 
-def stream_agent(question: str, thread_id: str = "default",
-                 checkpointer=None):
+def stream_agent(question: str, thread_id: str = "default", checkpointer=None):
     """Stream agent execution — yields (node_name, state_update) tuples."""
-    app    = build_graph(checkpointer=checkpointer)
-    state  = initial_state(question)
+    app = build_graph(checkpointer=checkpointer)
+    state = initial_state(question)
     config = {"configurable": {"thread_id": thread_id}}
     yield from app.stream(state, config=config, stream_mode="updates")

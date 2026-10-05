@@ -3,16 +3,15 @@ FastAPI Backend — Episode 25
 ==============================
 Production API with streaming SSE, auth, rate limiting, health checks.
 """
+
 from __future__ import annotations
+
 import logging
 import time
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from rag.api.routes import health, query
 from rag.config.settings import get_settings
@@ -30,8 +29,6 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    settings = get_settings()
-
     app = FastAPI(
         title="Women's Health RAG API",
         description="Production RAG system for global women's health data",
@@ -55,15 +52,15 @@ def create_app() -> FastAPI:
     async def log_requests(request: Request, call_next):
         t0 = time.perf_counter()
         response = await call_next(request)
-        elapsed  = time.perf_counter() - t0
-        logger.info("%s %s → %d (%.2fs)",
-                    request.method, request.url.path,
-                    response.status_code, elapsed)
+        elapsed = time.perf_counter() - t0
+        logger.info(
+            "%s %s → %d (%.2fs)", request.method, request.url.path, response.status_code, elapsed
+        )
         return response
 
     # Routes
     app.include_router(health.router, tags=["health"])
-    app.include_router(query.router,  tags=["query"])
+    app.include_router(query.router, tags=["query"])
 
     return app
 

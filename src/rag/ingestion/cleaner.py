@@ -33,13 +33,14 @@ import dataclasses
 import logging
 import re
 import unicodedata
-from typing import Callable
+from collections.abc import Callable
 
 from rag.ingestion.loader import RawPage
 
 logger = logging.getLogger(__name__)
 
 # ── Public API ────────────────────────────────────────────────────────────────
+
 
 def clean_page(page: RawPage) -> RawPage:
     """
@@ -97,7 +98,9 @@ def clean_pages(
     filtered = original_count - len(kept)
     logger.info(
         "Cleaned %d pages → kept %d, filtered %d (%.1f%%) below %d chars",
-        original_count, len(kept), filtered,
+        original_count,
+        len(kept),
+        filtered,
         100 * filtered / original_count if original_count else 0,
         min_chars,
     )
@@ -109,21 +112,22 @@ def cleaning_report(raw: RawPage, cleaned: RawPage) -> dict:
     Generate a before/after comparison report for a single page.
     Used in the Episode 2 notebook to show what each step does.
     """
-    raw_lines     = raw.text.split("\n")
+    raw_lines = raw.text.split("\n")
     cleaned_lines = cleaned.text.split("\n")
     return {
-        "raw_chars":       len(raw.text),
-        "cleaned_chars":   len(cleaned.text),
-        "reduction_pct":   round(100 * (1 - len(cleaned.text) / max(len(raw.text), 1)), 1),
-        "raw_lines":       len(raw_lines),
-        "cleaned_lines":   len(cleaned_lines),
-        "lines_removed":   len(raw_lines) - len(cleaned_lines),
-        "raw_preview":     raw.text[:300],
+        "raw_chars": len(raw.text),
+        "cleaned_chars": len(cleaned.text),
+        "reduction_pct": round(100 * (1 - len(cleaned.text) / max(len(raw.text), 1)), 1),
+        "raw_lines": len(raw_lines),
+        "cleaned_lines": len(cleaned_lines),
+        "lines_removed": len(raw_lines) - len(cleaned_lines),
+        "raw_preview": raw.text[:300],
         "cleaned_preview": cleaned.text[:300],
     }
 
 
 # ── Step 1: Unicode normalisation ─────────────────────────────────────────────
+
 
 def _normalise_unicode(text: str) -> str:
     """
@@ -142,34 +146,34 @@ def _normalise_unicode(text: str) -> str:
 
     replacements = {
         # Ligatures
-        "\uFB00": "ff",   # ﬀ
-        "\uFB01": "fi",   # ﬁ  ← most common in DHS reports
-        "\uFB02": "fl",   # ﬂ
-        "\uFB03": "ffi",  # ﬃ
-        "\uFB04": "ffl",  # ﬄ
-        "\uFB05": "st",   # ﬅ
-        "\uFB06": "st",   # ﬆ
+        "\ufb00": "ff",  # ﬀ
+        "\ufb01": "fi",  # ﬁ  ← most common in DHS reports
+        "\ufb02": "fl",  # ﬂ
+        "\ufb03": "ffi",  # ﬃ
+        "\ufb04": "ffl",  # ﬄ
+        "\ufb05": "st",  # ﬅ
+        "\ufb06": "st",  # ﬆ
         # Typographic quotes → ASCII
-        "\u2018": "'",    # ' left single
-        "\u2019": "'",    # ' right single
-        "\u201C": '"',    # " left double
-        "\u201D": '"',    # " right double
-        "\u201A": ",",    # ‚ low-9 quotation
-        "\u201E": ",,",   # „ low-9 double
+        "\u2018": "'",  # ' left single
+        "\u2019": "'",  # ' right single
+        "\u201c": '"',  # " left double
+        "\u201d": '"',  # " right double
+        "\u201a": ",",  # ‚ low-9 quotation
+        "\u201e": ",,",  # „ low-9 double
         # Dashes
         "\u2014": " - ",  # — em dash
         "\u2013": " - ",  # – en dash
-        "\u2012": "-",    # ‒ figure dash
+        "\u2012": "-",  # ‒ figure dash
         # Spaces
-        "\u00A0": " ",    # non-breaking space
-        "\u202F": " ",    # narrow no-break space
-        "\u2009": " ",    # thin space
-        "\u200B": "",     # zero-width space → remove entirely
-        "\uFEFF": "",     # BOM marker → remove
+        "\u00a0": " ",  # non-breaking space
+        "\u202f": " ",  # narrow no-break space
+        "\u2009": " ",  # thin space
+        "\u200b": "",  # zero-width space → remove entirely
+        "\ufeff": "",  # BOM marker → remove
         # Bullets used in DHS tables
-        "\u2022": "-",    # •
-        "\u25CF": "-",    # ●
-        "\u25A0": "-",    # ■
+        "\u2022": "-",  # •
+        "\u25cf": "-",  # ●
+        "\u25a0": "-",  # ■
     }
 
     for char, replacement in replacements.items():
@@ -182,6 +186,7 @@ def _normalise_unicode(text: str) -> str:
 
 
 # ── Step 2: Hyphenated line breaks ────────────────────────────────────────────
+
 
 def _fix_hyphenated_linebreaks(text: str) -> str:
     """
@@ -209,6 +214,7 @@ def _fix_hyphenated_linebreaks(text: str) -> str:
 
 
 # ── Step 3: Footnote number removal ───────────────────────────────────────────
+
 
 def _remove_footnote_numbers(text: str) -> str:
     """
@@ -238,6 +244,7 @@ def _remove_footnote_numbers(text: str) -> str:
 
 # ── Step 4: Repeated headers and footers ─────────────────────────────────────
 
+
 def _remove_repeated_headers(text: str) -> str:
     """
     Remove lines that are clearly page headers or footers repeated across pages.
@@ -258,7 +265,7 @@ def _remove_repeated_headers(text: str) -> str:
         "Every page in a DHS report has the same header. That header appearing
          in hundreds of chunks would confuse the retriever badly."
     """
-    lines   = text.split("\n")
+    lines = text.split("\n")
     cleaned = []
 
     for line in lines:
@@ -296,6 +303,7 @@ def _remove_repeated_headers(text: str) -> str:
 
 # ── Step 5: Table artefacts ───────────────────────────────────────────────────
 
+
 def _remove_table_artefacts(text: str) -> str:
     """
     Remove residual table extraction noise.
@@ -312,7 +320,7 @@ def _remove_table_artefacts(text: str) -> str:
         "The Kenya Vol I report FR380 has 684 pages — many of them dense tables.
          This step prevents table noise from polluting health narrative chunks."
     """
-    lines   = text.split("\n")
+    lines = text.split("\n")
     cleaned = []
 
     for line in lines:
@@ -338,6 +346,7 @@ def _remove_table_artefacts(text: str) -> str:
 
 # ── Step 6: Junk character removal ───────────────────────────────────────────
 
+
 def _remove_junk_characters(text: str) -> str:
     """
     Remove remaining encoding artefacts not caught by unicode normalisation.
@@ -351,7 +360,7 @@ def _remove_junk_characters(text: str) -> str:
     characters for country names (Côte d'Ivoire, São Tomé, etc.)
     """
     # Replacement character from bad encoding
-    text = text.replace("\uFFFD", "")
+    text = text.replace("\ufffd", "")
 
     # Null bytes
     text = text.replace("\x00", "")
@@ -367,6 +376,7 @@ def _remove_junk_characters(text: str) -> str:
 
 # ── Step 7: Short noise lines ─────────────────────────────────────────────────
 
+
 def _remove_short_noise_lines(text: str) -> str:
     """
     Remove lines that are too short to carry meaningful health data.
@@ -380,7 +390,7 @@ def _remove_short_noise_lines(text: str) -> str:
     Threshold: 3 characters — short enough to catch noise, long enough
     to keep "N/A", "Yes", "No", country codes like "GH", "NG".
     """
-    lines   = text.split("\n")
+    lines = text.split("\n")
     cleaned = []
     for line in lines:
         s = line.strip()
@@ -396,6 +406,7 @@ def _remove_short_noise_lines(text: str) -> str:
 
 
 # ── Step 8: Whitespace collapse ───────────────────────────────────────────────
+
 
 def _collapse_whitespace(text: str) -> str:
     """
@@ -428,14 +439,14 @@ def _collapse_whitespace(text: str) -> str:
 # ── Pipeline introspection helper ─────────────────────────────────────────────
 
 PIPELINE_STEPS: list[tuple[str, Callable[[str], str]]] = [
-    ("Unicode normalisation",     _normalise_unicode),
-    ("Hyphenated linebreaks",     _fix_hyphenated_linebreaks),
-    ("Footnote numbers",          _remove_footnote_numbers),
-    ("Repeated headers/footers",  _remove_repeated_headers),
-    ("Table artefacts",           _remove_table_artefacts),
-    ("Junk characters",           _remove_junk_characters),
-    ("Short noise lines",         _remove_short_noise_lines),
-    ("Whitespace collapse",       _collapse_whitespace),
+    ("Unicode normalisation", _normalise_unicode),
+    ("Hyphenated linebreaks", _fix_hyphenated_linebreaks),
+    ("Footnote numbers", _remove_footnote_numbers),
+    ("Repeated headers/footers", _remove_repeated_headers),
+    ("Table artefacts", _remove_table_artefacts),
+    ("Junk characters", _remove_junk_characters),
+    ("Short noise lines", _remove_short_noise_lines),
+    ("Whitespace collapse", _collapse_whitespace),
 ]
 
 
@@ -453,14 +464,16 @@ def step_by_step_clean(text: str) -> list[dict]:
     current = text
 
     for step_name, step_fn in PIPELINE_STEPS:
-        before  = current
+        before = current
         current = step_fn(current)
-        results.append({
-            "step":         step_name,
-            "chars_before": len(before),
-            "chars_after":  len(current),
-            "delta":        len(current) - len(before),
-            "text_after":   current[:200],   # preview
-        })
+        results.append(
+            {
+                "step": step_name,
+                "chars_before": len(before),
+                "chars_after": len(current),
+                "delta": len(current) - len(before),
+                "text_after": current[:200],  # preview
+            }
+        )
 
     return results

@@ -5,19 +5,23 @@ Runs the 30-question test set through the RAG pipeline and scores with RAGAS.
 Logs scores to CSV for tracking across episodes.
 Teaches: faithfulness, answer relevance, context precision, context recall.
 """
+
 from __future__ import annotations
-import csv, json, logging, time
+
+import csv
+import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from langchain_core.documents import Document
+
 from rag.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
 SCORES_FILE = Path("docs/RAGAS_scores.md")
-CSV_FILE    = Path("docs/ragas_history.csv")
-TEST_SET    = Path("src/rag/evaluation/test_set/questions.json")
+CSV_FILE = Path("docs/ragas_history.csv")
+TEST_SET = Path("src/rag/evaluation/test_set/questions.json")
 
 
 class RAGASRunner:
@@ -31,17 +35,16 @@ class RAGASRunner:
     """
 
     def __init__(self, rag_chain=None, retriever=None):
-        self.chain     = rag_chain
+        self.chain = rag_chain
         self.retriever = retriever
-        self.settings  = get_settings()
+        self.settings = get_settings()
 
     def load_test_set(self) -> list[dict]:
         if not TEST_SET.exists():
             raise FileNotFoundError(f"Test set not found: {TEST_SET}")
         return json.loads(TEST_SET.read_text())
 
-    def run(self, tag: str = "baseline",
-            question_types: list[str] | None = None) -> dict[str, Any]:
+    def run(self, tag: str = "baseline", question_types: list[str] | None = None) -> dict[str, Any]:
         """
         Run evaluation on the test set.
 
@@ -53,25 +56,23 @@ class RAGASRunner:
             tag, timestamp, scores (faithfulness etc), per_question, n_questions
         """
         try:
+            from datasets import Dataset
             from ragas import evaluate
             from ragas.metrics import (
-                answer_relevancy, context_precision,
-                context_recall, faithfulness,
+                answer_relevancy,
+                context_precision,
+                context_recall,
+                faithfulness,
             )
-            from datasets import Dataset
         except ImportError:
-            raise ImportError(
-                "RAGAS not installed. Run: uv add ragas datasets")
+            raise ImportError("RAGAS not installed. Run: uv add ragas datasets")
 
         questions_raw = self.load_test_set()
         if question_types:
-            questions_raw = [q for q in questions_raw
-                             if q.get("type") in question_types]
+            questions_raw = [q for q in questions_raw if q.get("type") in question_types]
 
         # Build dataset
-        data: dict[str, list] = {
-            "question": [], "answer": [], "contexts": [], "ground_truth": []
-        }
+        data: dict[str, list] = {"question": [], "answer": [], "contexts": [], "ground_truth": []}
 
         logger.info("Running RAGAS on %d questions [%s]...", len(questions_raw), tag)
 
@@ -81,7 +82,7 @@ class RAGASRunner:
 
             # Retrieve
             if self.retriever:
-                docs     = self.retriever.retrieve(question)
+                docs = self.retriever.retrieve(question)
                 contexts = [d.page_content for d in docs]
             else:
                 contexts = ["(no retriever configured)"]
@@ -98,25 +99,24 @@ class RAGASRunner:
             data["ground_truth"].append(q.get("ground_truth", ""))
 
         dataset = Dataset.from_dict(data)
-        result  = evaluate(
+        result = evaluate(
             dataset,
-            metrics=[faithfulness, answer_relevancy,
-                     context_precision, context_recall],
+            metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
         )
 
         scores = {
-            "faithfulness":       round(float(result["faithfulness"]), 4),
-            "answer_relevancy":   round(float(result["answer_relevancy"]), 4),
-            "context_precision":  round(float(result["context_precision"]), 4),
-            "context_recall":     round(float(result["context_recall"]), 4),
+            "faithfulness": round(float(result["faithfulness"]), 4),
+            "answer_relevancy": round(float(result["answer_relevancy"]), 4),
+            "context_precision": round(float(result["context_precision"]), 4),
+            "context_recall": round(float(result["context_recall"]), 4),
         }
 
         return {
-            "tag":          tag,
-            "timestamp":    datetime.now().isoformat(),
-            "scores":       scores,
-            "n_questions":  len(questions_raw),
-            "raw":          result,
+            "tag": tag,
+            "timestamp": datetime.now().isoformat(),
+            "scores": scores,
+            "n_questions": len(questions_raw),
+            "raw": result,
         }
 
     def save(self, result: dict[str, Any]) -> None:
@@ -131,36 +131,53 @@ class RAGASRunner:
         with open(CSV_FILE, "a", newline="") as f:
             w = csv.writer(f)
             if write_header:
-                w.writerow(["tag","timestamp","faithfulness","answer_relevancy",
-                             "context_precision","context_recall","n_questions"])
+                w.writerow(
+                    [
+                        "tag",
+                        "timestamp",
+                        "faithfulness",
+                        "answer_relevancy",
+                        "context_precision",
+                        "context_recall",
+                        "n_questions",
+                    ]
+                )
             s = result["scores"]
-            w.writerow([
-                result["tag"], result["timestamp"],
-                s["faithfulness"], s["answer_relevancy"],
-                s["context_precision"], s["context_recall"],
-                result["n_questions"],
-            ])
+            w.writerow(
+                [
+                    result["tag"],
+                    result["timestamp"],
+                    s["faithfulness"],
+                    s["answer_relevancy"],
+                    s["context_precision"],
+                    s["context_recall"],
+                    result["n_questions"],
+                ]
+            )
 
     def _update_markdown(self, result: dict) -> None:
         s = result["scores"]
-        row = (f"| {result['tag']} | {result['timestamp'][:10]} | "
-               f"{s['faithfulness']:.3f} | {s['answer_relevancy']:.3f} | "
-               f"{s['context_precision']:.3f} | {s['context_recall']:.3f} |")
+        row = (
+            f"| {result['tag']} | {result['timestamp'][:10]} | "
+            f"{s['faithfulness']:.3f} | {s['answer_relevancy']:.3f} | "
+            f"{s['context_precision']:.3f} | {s['context_recall']:.3f} |"
+        )
         logger.info("RAGAS row: %s", row)
 
 
 def main() -> None:
     import sys
+
     logging.basicConfig(level=logging.INFO)
     tag = sys.argv[1] if len(sys.argv) > 1 else "manual-run"
 
-    from rag.retrieval.vector_retriever import VectorRetriever
     from rag.chains.rag_chain import build_rag_chain
+    from rag.retrieval.vector_retriever import VectorRetriever
 
     retriever = VectorRetriever()
-    chain     = build_rag_chain(retriever)
-    runner    = RAGASRunner(rag_chain=chain, retriever=retriever)
-    result    = runner.run(tag=tag)
+    chain = build_rag_chain(retriever)
+    runner = RAGASRunner(rag_chain=chain, retriever=retriever)
+    result = runner.run(tag=tag)
     runner.save(result)
     print("\nScores:")
     for k, v in result["scores"].items():

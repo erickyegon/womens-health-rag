@@ -14,7 +14,7 @@ cleaning. This keeps the loader pure and testable.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -25,15 +25,15 @@ class RawPage:
     """A single extracted page before chunking or cleaning."""
 
     text: str
-    page_number: int           # 1-indexed
-    source_file: str           # absolute path
-    file_name: str             # basename
+    page_number: int  # 1-indexed
+    source_file: str  # absolute path
+    file_name: str  # basename
     total_pages: int
 
     # Enriched by the pipeline — set to empty string if unknown
     country: str = ""
     year: str = ""
-    report_type: str = ""      # "dhs" | "status_of_women" | "other"
+    report_type: str = ""  # "dhs" | "status_of_women" | "other"
     report_title: str = ""
 
     @property
@@ -89,9 +89,9 @@ def load_pdf(
 
     # Attach metadata to all pages
     for page in pages:
-        page.country      = country
-        page.year         = year
-        page.report_type  = report_type
+        page.country = country
+        page.year = year
+        page.report_type = report_type
         page.report_title = report_title or path.stem
 
     non_empty = [p for p in pages if not p.is_empty]
@@ -138,10 +138,10 @@ def load_directory(
         meta = (metadata_map or {}).get(pdf.stem, {})
         pages = load_pdf(
             pdf,
-            country      = meta.get("country", ""),
-            year         = meta.get("year", ""),
-            report_type  = meta.get("report_type", "dhs"),
-            report_title = meta.get("report_title", ""),
+            country=meta.get("country", ""),
+            year=meta.get("year", ""),
+            report_type=meta.get("report_type", "dhs"),
+            report_title=meta.get("report_title", ""),
         )
         all_pages.extend(pages)
 
@@ -150,6 +150,7 @@ def load_directory(
 
 
 # ── Private helpers ───────────────────────────────────────────────────────────
+
 
 def _load_with_pymupdf(path: Path) -> list[RawPage]:
     """Primary PDF extractor using PyMuPDF (fitz)."""
@@ -165,11 +166,11 @@ def _load_with_pymupdf(path: Path) -> list[RawPage]:
         text = page.get_text("text")  # plain text extraction
         pages.append(
             RawPage(
-                text        = text,
-                page_number = i,
-                source_file = str(path.resolve()),
-                file_name   = path.name,
-                total_pages = len(doc),
+                text=text,
+                page_number=i,
+                source_file=str(path.resolve()),
+                file_name=path.name,
+                total_pages=len(doc),
             )
         )
 
@@ -206,11 +207,11 @@ def _load_with_pdfplumber(path: Path) -> list[RawPage]:
 
             pages.append(
                 RawPage(
-                    text        = text,
-                    page_number = i,
-                    source_file = str(path.resolve()),
-                    file_name   = path.name,
-                    total_pages = total,
+                    text=text,
+                    page_number=i,
+                    source_file=str(path.resolve()),
+                    file_name=path.name,
+                    total_pages=total,
                 )
             )
 

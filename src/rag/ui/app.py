@@ -3,14 +3,19 @@ Streamlit UI — Episode 26
 ===========================
 Full chat interface with streaming, source citations panel, routing badge.
 """
+
 from __future__ import annotations
-import json, os, time
+
+import json
+import os
+import time
+
 import requests
 import streamlit as st
 
 API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
-API_KEY  = os.getenv("API_KEY", "dev-secret-change-in-prod")
-HEADERS  = {"Authorization": f"Bearer {API_KEY}"}
+API_KEY = os.getenv("API_KEY", "dev-secret-change-in-prod")
+HEADERS = {"Authorization": f"Bearer {API_KEY}"}
 
 
 def main():
@@ -23,13 +28,12 @@ def main():
     # ── Sidebar ────────────────────────────────────────────────────────────────
     with st.sidebar:
         st.title("⚙️ Settings")
-        use_agent   = st.toggle("Use LangGraph Agent", value=False,
-                                help="Phase 3 agentic retrieval")
+        use_agent = st.toggle("Use LangGraph Agent", value=False, help="Phase 3 agentic retrieval")
         show_sources = st.toggle("Show source citations", value=True)
-        country_filter = st.selectbox("Filter by country",
-                                      ["All", "Nigeria", "Kenya", "Ghana", "Ethiopia"])
-        year_filter = st.selectbox("Filter by year",
-                                   ["All", "2019", "2021", "2022"])
+        country_filter = st.selectbox(
+            "Filter by country", ["All", "Nigeria", "Kenya", "Ghana", "Ethiopia"]
+        )
+        year_filter = st.selectbox("Filter by year", ["All", "2019", "2021", "2022"])
         if st.button("Clear conversation"):
             st.session_state.messages = []
             st.rerun()
@@ -67,9 +71,9 @@ def main():
             st.markdown(question)
 
         with st.chat_message("assistant"):
-            placeholder  = st.empty()
+            placeholder = st.empty()
             sources_slot = st.empty()
-            meta_slot    = st.empty()
+            meta_slot = st.empty()
 
             # Build filters
             filters = {}
@@ -80,16 +84,16 @@ def main():
 
             # Stream response
             full_text = ""
-            sources   = []
-            t0        = time.perf_counter()
+            sources = []
+            t0 = time.perf_counter()
 
             try:
                 with requests.post(
                     f"{API_BASE}/query/stream",
                     headers=HEADERS,
-                    json={"question": question, "filters": filters,
-                          "use_agent": use_agent},
-                    stream=True, timeout=60,
+                    json={"question": question, "filters": filters, "use_agent": use_agent},
+                    stream=True,
+                    timeout=60,
                 ) as resp:
                     for line in resp.iter_lines():
                         if not line:
@@ -110,8 +114,7 @@ def main():
                                 pass
 
             except requests.exceptions.ConnectionError:
-                full_text = ("⚠️ Cannot reach the API. "
-                             "Make sure `make up` is running.")
+                full_text = "⚠️ Cannot reach the API. Make sure `make up` is running."
 
             placeholder.markdown(full_text)
             elapsed = time.perf_counter() - t0
@@ -120,20 +123,20 @@ def main():
                 with sources_slot.expander(f"📄 Sources ({len(sources)})"):
                     _render_sources(sources)
 
-            meta_slot.caption(f"⏱ {elapsed:.1f}s | "
-                              f"{'🤖 Agent' if use_agent else '⚡ Chain'}")
+            meta_slot.caption(f"⏱ {elapsed:.1f}s | {'🤖 Agent' if use_agent else '⚡ Chain'}")
 
-        st.session_state.messages.append({
-            "role": "assistant", "content": full_text, "sources": sources})
+        st.session_state.messages.append(
+            {"role": "assistant", "content": full_text, "sources": sources}
+        )
 
 
 def _render_sources(sources: list[dict]):
     for s in sources:
         st.markdown(
-            f"**[Source {s.get('n','')}]** "
-            f"{s.get('title','Unknown')} | "
-            f"{s.get('country','')} {s.get('year','')} | "
-            f"Page {s.get('page','?')}"
+            f"**[Source {s.get('n', '')}]** "
+            f"{s.get('title', 'Unknown')} | "
+            f"{s.get('country', '')} {s.get('year', '')} | "
+            f"Page {s.get('page', '?')}"
         )
 
 

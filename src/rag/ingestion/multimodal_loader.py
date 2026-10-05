@@ -54,10 +54,9 @@ Episode 2B walkthrough:
 from __future__ import annotations
 
 import base64
-import dataclasses
 import logging
-from dataclasses import dataclass, field
-from enum import Enum
+from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -68,12 +67,13 @@ logger = logging.getLogger(__name__)
 
 # ── Element types ─────────────────────────────────────────────────────────────
 
-class ElementType(str, Enum):
-    TEXT    = "text"
-    TABLE   = "table"
-    FIGURE  = "figure"
+
+class ElementType(StrEnum):
+    TEXT = "text"
+    TABLE = "table"
+    FIGURE = "figure"
     HEADING = "heading"
-    LIST    = "list"
+    LIST = "list"
 
 
 @dataclass
@@ -83,46 +83,47 @@ class DocElement:
     Tables, figures, headings, and text paragraphs are each separate elements.
     This is the key improvement over the old RawPage approach which merged everything.
     """
+
     element_type: ElementType
-    content:      str                  # text / Markdown table / figure description
-    page_number:  int
-    source_file:  str
-    file_name:    str
-    total_pages:  int
+    content: str  # text / Markdown table / figure description
+    page_number: int
+    source_file: str
+    file_name: str
+    total_pages: int
 
     # Domain metadata
-    country:      str = ""
-    year:         str = ""
-    report_type:  str = ""
+    country: str = ""
+    year: str = ""
+    report_type: str = ""
     report_title: str = ""
 
     # Element-specific metadata
-    table_markdown:  str | None = None   # for TABLE: raw Markdown from Docling
-    table_prose:     str | None = None   # for TABLE: LLM-generated prose summary
-    figure_caption:  str | None = None   # for FIGURE: caption text if found
-    figure_base64:   str | None = None   # for FIGURE: base64 image (not indexed)
-    heading_level:   int | None = None   # for HEADING: 1=H1, 2=H2, etc.
-    confidence:      float = 1.0         # extraction confidence
+    table_markdown: str | None = None  # for TABLE: raw Markdown from Docling
+    table_prose: str | None = None  # for TABLE: LLM-generated prose summary
+    figure_caption: str | None = None  # for FIGURE: caption text if found
+    figure_base64: str | None = None  # for FIGURE: base64 image (not indexed)
+    heading_level: int | None = None  # for HEADING: 1=H1, 2=H2, etc.
+    confidence: float = 1.0  # extraction confidence
 
     def to_langchain_document(self) -> Document:
         """Convert to LangChain Document for indexing."""
         return Document(
             page_content=self.content,
             metadata={
-                "element_type":  self.element_type.value,
-                "source":        self.source_file,
-                "file_name":     self.file_name,
-                "page_number":   self.page_number,
-                "total_pages":   self.total_pages,
-                "country":       self.country,
-                "year":          self.year,
-                "report_type":   self.report_type,
-                "report_title":  self.report_title,
-                "has_table":     self.element_type == ElementType.TABLE,
-                "has_figure":    self.element_type == ElementType.FIGURE,
+                "element_type": self.element_type.value,
+                "source": self.source_file,
+                "file_name": self.file_name,
+                "page_number": self.page_number,
+                "total_pages": self.total_pages,
+                "country": self.country,
+                "year": self.year,
+                "report_type": self.report_type,
+                "report_title": self.report_title,
+                "has_table": self.element_type == ElementType.TABLE,
+                "has_figure": self.element_type == ElementType.FIGURE,
                 "figure_caption": self.figure_caption,
-                "confidence":    self.confidence,
-            }
+                "confidence": self.confidence,
+            },
         )
 
     @property
@@ -131,6 +132,7 @@ class DocElement:
 
 
 # ── Main multimodal loader ────────────────────────────────────────────────────
+
 
 class MultimodalLoader:
     """
@@ -154,22 +156,22 @@ class MultimodalLoader:
     def __init__(
         self,
         vision_enabled: bool = True,
-        vision_model:   str  = "gpt-4o",
-        table_prose:    bool = True,
-        batch_vision:   int  = 5,
+        vision_model: str = "gpt-4o",
+        table_prose: bool = True,
+        batch_vision: int = 5,
     ):
         self.vision_enabled = vision_enabled
-        self.vision_model   = vision_model
-        self.table_prose    = table_prose
-        self.batch_vision   = batch_vision
-        self._vision_client = None   # lazy init
+        self.vision_model = vision_model
+        self.table_prose = table_prose
+        self.batch_vision = batch_vision
+        self._vision_client = None  # lazy init
 
     def load_pdf(
         self,
         path: Path | str,
-        country:      str = "",
-        year:         str = "",
-        report_type:  str = "dhs",
+        country: str = "",
+        year: str = "",
+        report_type: str = "dhs",
         report_title: str = "",
     ) -> list[DocElement]:
         """
@@ -192,11 +194,11 @@ class MultimodalLoader:
         logger.info("Multimodal loading: %s", path.name)
 
         meta = {
-            "source_file":  str(path.resolve()),
-            "file_name":    path.name,
-            "country":      country,
-            "year":         year,
-            "report_type":  report_type,
+            "source_file": str(path.resolve()),
+            "file_name": path.name,
+            "country": country,
+            "year": year,
+            "report_type": report_type,
             "report_title": report_title or path.stem,
         }
 
@@ -246,7 +248,8 @@ class MultimodalLoader:
 
         logger.info(
             "Directory load complete: %d elements from %d PDFs",
-            len(all_elements), len(pdfs),
+            len(all_elements),
+            len(pdfs),
         )
         return all_elements
 
@@ -263,16 +266,18 @@ class MultimodalLoader:
             docs.append(elem.to_langchain_document())
 
             # For tables: also index the prose version separately
-            if (elem.element_type == ElementType.TABLE
-                    and elem.table_prose
-                    and elem.table_prose != elem.content):
+            if (
+                elem.element_type == ElementType.TABLE
+                and elem.table_prose
+                and elem.table_prose != elem.content
+            ):
                 prose_doc = Document(
                     page_content=elem.table_prose,
                     metadata={
                         **elem.to_langchain_document().metadata,
                         "element_type": "table_prose",
                         "source_element": "table",
-                    }
+                    },
                 )
                 docs.append(prose_doc)
 
@@ -287,35 +292,29 @@ class MultimodalLoader:
         TableFormer reconstructs table structure as Markdown.
         """
         try:
-            from docling.document_converter import DocumentConverter
             from docling.datamodel.base_models import InputFormat
             from docling.datamodel.pipeline_options import PdfPipelineOptions
-            from docling.document_converter import PdfFormatOption
+            from docling.document_converter import DocumentConverter, PdfFormatOption
         except ImportError:
-            logger.warning(
-                "Docling not installed — falling back to PyMuPDF. "
-                "Run: uv add docling"
-            )
+            logger.warning("Docling not installed — falling back to PyMuPDF. Run: uv add docling")
             return self._pymupdf_fallback(path, meta)
 
         # Configure pipeline — save images for vision processing later
         pipeline_opts = PdfPipelineOptions()
-        pipeline_opts.images_scale = 2.0          # high-res for vision model
+        pipeline_opts.images_scale = 2.0  # high-res for vision model
         pipeline_opts.generate_page_images = False
         pipeline_opts.generate_picture_images = True  # extract figure images
 
         converter = DocumentConverter(
-            format_options={
-                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_opts)
-            }
+            format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_opts)}
         )
 
         logger.info("Running Docling on %s...", path.name)
         result = converter.convert(str(path))
-        doc    = result.document
+        doc = result.document
 
         # Count pages
-        total_pages = len(doc.pages) if hasattr(doc, 'pages') else 1
+        total_pages = len(doc.pages) if hasattr(doc, "pages") else 1
 
         elements: list[DocElement] = []
 
@@ -324,73 +323,82 @@ class MultimodalLoader:
             item_type = type(item).__name__
 
             if item_type in ("TextItem", "ParagraphItem"):
-                elements.append(DocElement(
-                    element_type=ElementType.TEXT,
-                    content=item.text,
-                    page_number=self._get_page(item, doc),
-                    total_pages=total_pages,
-                    **meta,
-                ))
+                elements.append(
+                    DocElement(
+                        element_type=ElementType.TEXT,
+                        content=item.text,
+                        page_number=self._get_page(item, doc),
+                        total_pages=total_pages,
+                        **meta,
+                    )
+                )
 
             elif item_type == "SectionHeaderItem":
-                elements.append(DocElement(
-                    element_type=ElementType.HEADING,
-                    content=item.text,
-                    page_number=self._get_page(item, doc),
-                    total_pages=total_pages,
-                    heading_level=getattr(item, 'level', 1),
-                    **meta,
-                ))
+                elements.append(
+                    DocElement(
+                        element_type=ElementType.HEADING,
+                        content=item.text,
+                        page_number=self._get_page(item, doc),
+                        total_pages=total_pages,
+                        heading_level=getattr(item, "level", 1),
+                        **meta,
+                    )
+                )
 
             elif item_type == "TableItem":
                 md_table = item.export_to_markdown()
-                elements.append(DocElement(
-                    element_type=ElementType.TABLE,
-                    content=md_table,
-                    table_markdown=md_table,
-                    page_number=self._get_page(item, doc),
-                    total_pages=total_pages,
-                    confidence=0.95,
-                    **meta,
-                ))
+                elements.append(
+                    DocElement(
+                        element_type=ElementType.TABLE,
+                        content=md_table,
+                        table_markdown=md_table,
+                        page_number=self._get_page(item, doc),
+                        total_pages=total_pages,
+                        confidence=0.95,
+                        **meta,
+                    )
+                )
 
             elif item_type in ("PictureItem", "FigureItem"):
                 caption = ""
-                if hasattr(item, 'caption') and item.caption:
+                if hasattr(item, "caption") and item.caption:
                     caption = str(item.caption)
                 # Extract image bytes for vision processing
                 img_b64 = self._extract_figure_image(item, result)
-                elements.append(DocElement(
-                    element_type=ElementType.FIGURE,
-                    content=caption or f"[Figure on page {self._get_page(item, doc)}]",
-                    figure_caption=caption,
-                    figure_base64=img_b64,
-                    page_number=self._get_page(item, doc),
-                    total_pages=total_pages,
-                    confidence=0.5,  # low until vision processes it
-                    **meta,
-                ))
+                elements.append(
+                    DocElement(
+                        element_type=ElementType.FIGURE,
+                        content=caption or f"[Figure on page {self._get_page(item, doc)}]",
+                        figure_caption=caption,
+                        figure_base64=img_b64,
+                        page_number=self._get_page(item, doc),
+                        total_pages=total_pages,
+                        confidence=0.5,  # low until vision processes it
+                        **meta,
+                    )
+                )
 
             elif item_type == "ListItem":
-                elements.append(DocElement(
-                    element_type=ElementType.LIST,
-                    content=item.text,
-                    page_number=self._get_page(item, doc),
-                    total_pages=total_pages,
-                    **meta,
-                ))
+                elements.append(
+                    DocElement(
+                        element_type=ElementType.LIST,
+                        content=item.text,
+                        page_number=self._get_page(item, doc),
+                        total_pages=total_pages,
+                        **meta,
+                    )
+                )
 
         logger.info(
             "Docling extracted %d elements from %s",
-            len(elements), path.name,
+            len(elements),
+            path.name,
         )
         return elements
 
     # ── Layer 2: GPT-4o Vision ────────────────────────────────────────────────
 
-    def _vision_describe_figures(
-        self, elements: list[DocElement], path: Path
-    ) -> list[DocElement]:
+    def _vision_describe_figures(self, elements: list[DocElement], path: Path) -> list[DocElement]:
         """
         For each FIGURE element, use GPT-4o to generate a rich text description.
 
@@ -420,19 +428,18 @@ class MultimodalLoader:
                     context=fig.figure_caption or "",
                     report_context=f"{fig.country} {fig.report_title} {fig.year}",
                 )
-                fig.content    = description
+                fig.content = description
                 fig.confidence = 0.9
             else:
                 logger.warning(
                     "Could not extract image for figure on page %d of %s",
-                    fig.page_number, fig.file_name,
+                    fig.page_number,
+                    fig.file_name,
                 )
 
         return elements
 
-    def _gpt4o_describe(
-        self, image_b64: str, context: str = "", report_context: str = ""
-    ) -> str:
+    def _gpt4o_describe(self, image_b64: str, context: str = "", report_context: str = "") -> str:
         """
         Send a figure image to GPT-4o and get a structured description.
 
@@ -443,8 +450,8 @@ class MultimodalLoader:
         - Connection to the surrounding text
         """
         prompt = f"""You are analysing a figure from a Demographic and Health Survey (DHS) report.
-{f'Report context: {report_context}' if report_context else ''}
-{f'Figure caption: {context}' if context else ''}
+{f"Report context: {report_context}" if report_context else ""}
+{f"Figure caption: {context}" if context else ""}
 
 Describe this figure comprehensively for a health data retrieval system:
 
@@ -456,25 +463,27 @@ Describe this figure comprehensively for a health data retrieval system:
 6. KEY TRENDS: What are the main patterns or findings?
 7. CONTEXT: How does this connect to maternal health, fertility, contraception, or child health?
 
-Be specific and include all numerical values — this description will be used to answer 
+Be specific and include all numerical values — this description will be used to answer
 precise data queries about women's health statistics."""
 
         try:
             response = self._vision_client.chat.completions.create(
                 model=self.vision_model,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{image_b64}",
-                                "detail": "high",   # high detail for charts with small numbers
-                            }
-                        }
-                    ]
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{image_b64}",
+                                    "detail": "high",  # high detail for charts with small numbers
+                                },
+                            },
+                        ],
+                    }
+                ],
                 max_tokens=1000,
             )
             return response.choices[0].message.content.strip()
@@ -534,7 +543,7 @@ precise data queries about women's health statistics."""
         if not self._vision_client:
             self._vision_client = self._init_vision_client()
 
-        prompt = f"""Convert this Markdown table from a DHS health report into clear, 
+        prompt = f"""Convert this Markdown table from a DHS health report into clear,
 descriptive prose that captures ALL the data values.
 
 Report context: {report_context} (page {page})
@@ -548,17 +557,15 @@ Write 2-5 sentences that:
 3. Use natural language that matches how a health researcher would ask about this data
 4. Include any footnotes or notes visible in the table
 
-Example style: "Table 3 shows fertility rates by residence in Nigeria (2021). 
+Example style: "Table 3 shows fertility rates by residence in Nigeria (2021).
 The total fertility rate for women aged 15-49 is 3.9 urban, 5.6 rural, and 4.8 nationally.
 General fertility rates are 129, 190, and 160 per 1,000 women aged 15-44 respectively."
 
 Output ONLY the prose description, nothing else."""
 
         try:
-            from rag.config.settings import get_settings
-            settings = get_settings()
             response = self._vision_client.chat.completions.create(
-                model="gpt-4o-mini",   # cheap — tables are structured text not images
+                model="gpt-4o-mini",  # cheap — tables are structured text not images
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=400,
                 temperature=0,
@@ -573,7 +580,9 @@ Output ONLY the prose description, nothing else."""
     def _init_vision_client(self):
         try:
             import openai
+
             from rag.config.settings import get_settings
+
             s = get_settings()
             return openai.OpenAI(api_key=s.openai_api_key.get_secret_value())
         except Exception as e:
@@ -583,7 +592,7 @@ Output ONLY the prose description, nothing else."""
     def _get_page(self, item: Any, doc: Any) -> int:
         """Extract page number from a Docling item."""
         try:
-            if hasattr(item, 'prov') and item.prov:
+            if hasattr(item, "prov") and item.prov:
                 return item.prov[0].page_no
         except Exception:
             pass
@@ -592,9 +601,10 @@ Output ONLY the prose description, nothing else."""
     def _extract_figure_image(self, item: Any, result: Any) -> str | None:
         """Extract a figure's image bytes from Docling as base64."""
         try:
-            if hasattr(item, 'image') and item.image:
+            if hasattr(item, "image") and item.image:
                 img_data = item.image.pil_image
                 import io
+
                 buf = io.BytesIO()
                 img_data.save(buf, format="PNG")
                 return base64.b64encode(buf.getvalue()).decode()
@@ -610,9 +620,10 @@ Output ONLY the prose description, nothing else."""
         """
         try:
             import pymupdf
-            doc  = pymupdf.open(str(path))
+
+            doc = pymupdf.open(str(path))
             page = doc[page_number - 1]
-            pix  = page.get_pixmap(dpi=150)
+            pix = page.get_pixmap(dpi=150)
             img_bytes = pix.tobytes("png")
             doc.close()
             return base64.b64encode(img_bytes).decode()
@@ -631,27 +642,30 @@ Output ONLY the prose description, nothing else."""
             raise ImportError("Neither Docling nor PyMuPDF is installed.")
 
         logger.warning("Using PyMuPDF fallback — install Docling for full multimodal support")
-        doc   = pymupdf.open(str(path))
+        doc = pymupdf.open(str(path))
         total = len(doc)
         elements: list[DocElement] = []
 
         for i, page in enumerate(doc, start=1):
             text = page.get_text("text").strip()
             if len(text) > 50:
-                elements.append(DocElement(
-                    element_type=ElementType.TEXT,
-                    content=text,
-                    page_number=i,
-                    total_pages=total,
-                    confidence=0.5,
-                    **meta,
-                ))
+                elements.append(
+                    DocElement(
+                        element_type=ElementType.TEXT,
+                        content=text,
+                        page_number=i,
+                        total_pages=total,
+                        confidence=0.5,
+                        **meta,
+                    )
+                )
 
         doc.close()
         return elements
 
 
 # ── Convenience functions ─────────────────────────────────────────────────────
+
 
 def load_pdf_multimodal(
     path: Path | str,
@@ -673,9 +687,10 @@ def load_pdf_multimodal(
         tables = [d for d in docs if d.metadata['has_table']]
         figures = [d for d in docs if d.metadata['has_figure']]
     """
-    loader   = MultimodalLoader(vision_enabled=vision_enabled)
-    elements = loader.load_pdf(path, country=country, year=year,
-                               report_type=report_type, report_title=report_title)
+    loader = MultimodalLoader(vision_enabled=vision_enabled)
+    elements = loader.load_pdf(
+        path, country=country, year=year, report_type=report_type, report_title=report_title
+    )
     return loader.to_documents(elements)
 
 
@@ -688,7 +703,7 @@ def load_directory_multimodal(
     Load all PDFs in a directory with multimodal extraction.
     Drop-in replacement for the Episode 1–2 load_directory() + chunk_pages() flow.
     """
-    loader   = MultimodalLoader(vision_enabled=vision_enabled)
+    loader = MultimodalLoader(vision_enabled=vision_enabled)
     elements = loader.load_directory(directory, metadata_map=metadata_map)
     return loader.to_documents(elements)
 
@@ -696,18 +711,19 @@ def load_directory_multimodal(
 def element_stats(elements: list[DocElement]) -> dict:
     """Summary statistics for a multimodal load — used in Episode 2B notebook."""
     from collections import Counter
+
     type_counts = Counter(e.element_type.value for e in elements)
     return {
-        "total":      len(elements),
-        "text":       type_counts.get("text", 0),
-        "tables":     type_counts.get("table", 0),
-        "figures":    type_counts.get("figure", 0),
-        "headings":   type_counts.get("heading", 0),
-        "lists":      type_counts.get("list", 0),
-        "with_vision": sum(1 for e in elements
-                          if e.element_type == ElementType.FIGURE
-                          and e.confidence > 0.5),
-        "with_prose":  sum(1 for e in elements
-                          if e.element_type == ElementType.TABLE
-                          and e.table_prose is not None),
+        "total": len(elements),
+        "text": type_counts.get("text", 0),
+        "tables": type_counts.get("table", 0),
+        "figures": type_counts.get("figure", 0),
+        "headings": type_counts.get("heading", 0),
+        "lists": type_counts.get("list", 0),
+        "with_vision": sum(
+            1 for e in elements if e.element_type == ElementType.FIGURE and e.confidence > 0.5
+        ),
+        "with_prose": sum(
+            1 for e in elements if e.element_type == ElementType.TABLE and e.table_prose is not None
+        ),
     }

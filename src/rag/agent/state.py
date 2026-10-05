@@ -4,8 +4,11 @@ Agent State — Episode 18
 TypedDict defining the complete LangGraph agent state.
 Single source of truth — all nodes read/write this schema.
 """
+
 from __future__ import annotations
+
 from typing import Annotated, Literal
+
 from langchain_core.documents import Document
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
@@ -30,18 +33,19 @@ class AgentState(dict):
         filters         Active metadata filters {country, year, ...}
         metadata        Arbitrary telemetry for LangSmith
     """
-    question:     str
+
+    question: str
     chat_history: Annotated[list[BaseMessage], add_messages]
-    strategy:     Literal["direct", "vector", "hybrid", "multihop"] | None
-    query:        str | None
-    rewrites:     int
-    documents:    list[Document]
-    graded_docs:  list[Document]
-    answer:       str | None
-    grounded:     bool | None
-    sources:      list[dict]
-    filters:      dict
-    metadata:     dict
+    strategy: Literal["direct", "vector", "hybrid", "multihop"] | None
+    query: str | None
+    rewrites: int
+    documents: list[Document]
+    graded_docs: list[Document]
+    answer: str | None
+    grounded: bool | None
+    sources: list[dict]
+    filters: dict
+    metadata: dict
 
 
 def initial_state(question: str, chat_history: list | None = None) -> AgentState:
