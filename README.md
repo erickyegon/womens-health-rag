@@ -2,12 +2,10 @@
 
 > A production-grade Retrieval-Augmented Generation system for querying global women's health data — built live across a 28-episode YouTube series.
 
-[![CI](https://github.com/your-username/womens-health-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/womens-health-rag/actions/workflows/ci.yml)
+[![CI](https://github.com/erickyegon/womens-health-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/erickyegon/womens-health-rag/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-teal.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
-
-**[▶ Watch the course on YouTube](#)** · **[Live Demo](#)** · **[LangSmith Traces](#)**
 
 ---
 
@@ -24,16 +22,9 @@ Query → Adaptive router → Hybrid retrieval → Reranking → Self-correction
 
 ---
 
-## RAGAS score progression
+## Evaluation
 
-| Phase | Faithfulness | Answer Relevance | Context Precision | Context Recall |
-|-------|-------------|------------------|-------------------|----------------|
-| Phase 1 — Baseline   | –    | –    | –    | –    |
-| Phase 2 — Production | –    | –    | –    | –    |
-| Phase 3 — Agentic    | –    | –    | –    | –    |
-| Phase 4 — Final      | –    | –    | –    | –    |
-
-*Scores updated after each phase recap episode.*
+The RAGAS evaluation pipeline is in `src/rag/evaluation/` (`make eval`). Scores have not yet been published for this repo; they will be added once a full run on the ingested DHS corpus is complete.
 
 ---
 
@@ -68,7 +59,7 @@ Query → Adaptive router → Hybrid retrieval → Reranking → Self-correction
 ### 1. Clone and set up
 
 ```bash
-git clone https://github.com/your-username/womens-health-rag.git
+git clone https://github.com/erickyegon/womens-health-rag.git
 cd womens-health-rag
 
 # Check out the episode you're following

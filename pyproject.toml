@@ -9,7 +9,7 @@ description = "Production RAG system for querying global women's health data"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
-authors = [{ name = "Your Name", email = "you@example.com" }]
+authors = [{ name = "Erick K Yegon" }]
 
 dependencies = [
     # LangChain ecosystem
