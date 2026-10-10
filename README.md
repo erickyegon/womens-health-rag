@@ -1,6 +1,6 @@
 # 🌍 Women's Health RAG
 
-> A production-grade Retrieval-Augmented Generation system for querying global women's health data — built live across a 28-episode YouTube series.
+> A production-grade Retrieval-Augmented Generation system for querying global women's health data — developed as a series of 28 companion notebooks.
 
 [![CI](https://github.com/erickyegon/womens-health-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/erickyegon/womens-health-rag/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-teal.svg)](https://www.python.org/downloads/)
@@ -62,8 +62,6 @@ The RAGAS evaluation pipeline is in `src/rag/evaluation/` (`make eval`). Scores 
 git clone https://github.com/erickyegon/womens-health-rag.git
 cd womens-health-rag
 
-# Check out the episode you're following
-git checkout episode/01   # or main for the latest
 
 # Install dependencies
 make setup
@@ -132,36 +130,37 @@ womens-health-rag/
 
 ## Episode guide
 
-| Episode | Title | Branch | Notebook |
-|---------|-------|--------|----------|
-| E01 | Why RAG? Environment setup | `episode/01` | [episode_01_intro.ipynb](notebooks/episode_01_intro.ipynb) |
-| E02 | Document ingestion & chunking | `episode/02` | notebooks/episode_02_chunking.ipynb |
-| E03 | Embeddings: OpenAI vs ONNX | `episode/03` | notebooks/episode_03_embeddings.ipynb |
-| E04 | pgvector: production vector storage | `episode/04` | notebooks/episode_04_pgvector.ipynb |
-| E05 | First RAG chain with LangChain | `episode/05` | notebooks/episode_05_rag_chain.ipynb |
-| E06 | Hybrid search: BM25 + vector | `episode/06` | notebooks/episode_06_hybrid.ipynb |
-| E07 | Metadata filtering + self-query | `episode/07` | notebooks/episode_07_metadata.ipynb |
-| E08 | Phase 1 recap & diagnostics | `episode/08` | notebooks/episode_08_recap.ipynb |
-| E09 | RAGAS evaluation pipeline | `episode/09` | notebooks/episode_09_ragas.ipynb |
-| E10 | Reranking with Cohere | `episode/10` | notebooks/episode_10_reranking.ipynb |
-| E11 | Query rewriting: HyDE & multi-query | `episode/11` | notebooks/episode_11_query_rewrite.ipynb |
-| E12 | Structured outputs with Pydantic | `episode/12` | notebooks/episode_12_structured.ipynb |
-| E13 | Multi-hop retrieval | `episode/13` | notebooks/episode_13_multihop.ipynb |
-| E14 | Conversational RAG with memory | `episode/14` | notebooks/episode_14_conversation.ipynb |
-| E15 | Semantic & late chunking | `episode/15` | notebooks/episode_15_advanced_chunking.ipynb |
-| E16 | Guardrails & hallucination detection | `episode/16` | notebooks/episode_16_guardrails.ipynb |
-| E17 | Phase 2 RAGAS report card | `episode/17` | notebooks/episode_17_recap.ipynb |
-| E18 | LangGraph fundamentals | `episode/18` | notebooks/episode_18_langgraph.ipynb |
-| E19 | Adaptive retrieval routing | `episode/19` | notebooks/episode_19_routing.ipynb |
-| E20 | Self-correcting RAG | `episode/20` | notebooks/episode_20_self_correct.ipynb |
-| E21 | LangSmith observability | `episode/21` | notebooks/episode_21_langsmith.ipynb |
-| E22 | Human-in-the-loop checkpoints | `episode/22` | notebooks/episode_22_hitl.ipynb |
-| E23 | Multi-agent systems | `episode/23` | notebooks/episode_23_multi_agent.ipynb |
-| E24 | Phase 3 recap | `episode/24` | notebooks/episode_24_recap.ipynb |
-| E25 | FastAPI backend | `episode/25` | notebooks/episode_25_fastapi.ipynb |
-| E26 | Streamlit frontend | `episode/26` | notebooks/episode_26_streamlit.ipynb |
-| E27 | Docker & cloud deployment | `episode/27` | notebooks/episode_27_deployment.ipynb |
-| E28 | Capstone & interview guide | `episode/28` | notebooks/episode_28_capstone.ipynb |
+| Episode | Title | Notebook |
+|---------|-------|----------|
+| E01 | Why RAG? Environment setup | [episode_01_intro.ipynb](notebooks/episode_01_intro.ipynb) |
+| E02 | Document ingestion & chunking | [episode_02_chunking.ipynb](notebooks/episode_02_chunking.ipynb) |
+| E02b | Multimodal ingestion (supplementary) | [episode_02b_multimodal_ingestion.ipynb](notebooks/episode_02b_multimodal_ingestion.ipynb) |
+| E03 | Embeddings: OpenAI vs ONNX | [episode_03_embeddings__turning_text_into.ipynb](notebooks/episode_03_embeddings__turning_text_into.ipynb) |
+| E04 | pgvector: production vector storage | [episode_04_pgvector__production_vector_st.ipynb](notebooks/episode_04_pgvector__production_vector_st.ipynb) |
+| E05 | First RAG chain with LangChain | [episode_05_your_first_rag_chain_with_lang.ipynb](notebooks/episode_05_your_first_rag_chain_with_lang.ipynb) |
+| E06 | Hybrid search: BM25 + vector | [episode_06_hybrid_search__bm25_plus_vecto.ipynb](notebooks/episode_06_hybrid_search__bm25_plus_vecto.ipynb) |
+| E07 | Metadata filtering + self-query | [episode_07_metadata_filtering__selfqueryi.ipynb](notebooks/episode_07_metadata_filtering__selfqueryi.ipynb) |
+| E08 | Phase 1 recap & diagnostics | [episode_08_phase_1_recap__what_we_built_a.ipynb](notebooks/episode_08_phase_1_recap__what_we_built_a.ipynb) |
+| E09 | RAGAS evaluation pipeline | [episode_09_ragas_evaluation_pipeline.ipynb](notebooks/episode_09_ragas_evaluation_pipeline.ipynb) |
+| E10 | Reranking with Cohere | [episode_10_reranking.ipynb](notebooks/episode_10_reranking.ipynb) |
+| E11 | Query rewriting: HyDE & multi-query | [episode_11_query_rewriting.ipynb](notebooks/episode_11_query_rewriting.ipynb) |
+| E12 | Structured outputs with Pydantic | [episode_12_structured_outputs.ipynb](notebooks/episode_12_structured_outputs.ipynb) |
+| E13 | Multi-hop retrieval | [episode_13_multihop.ipynb](notebooks/episode_13_multihop.ipynb) |
+| E14 | Conversational RAG with memory | [episode_14_conversational_rag.ipynb](notebooks/episode_14_conversational_rag.ipynb) |
+| E15 | Semantic & late chunking | [episode_15_advanced_chunking.ipynb](notebooks/episode_15_advanced_chunking.ipynb) |
+| E16 | Guardrails & hallucination detection | [episode_16_guardrails.ipynb](notebooks/episode_16_guardrails.ipynb) |
+| E17 | Phase 2 RAGAS report card | [episode_17_phase2_recap.ipynb](notebooks/episode_17_phase2_recap.ipynb) |
+| E18 | LangGraph fundamentals | [episode_18_langgraph_fundamentals.ipynb](notebooks/episode_18_langgraph_fundamentals.ipynb) |
+| E19 | Adaptive retrieval routing | [episode_19_adaptive_routing.ipynb](notebooks/episode_19_adaptive_routing.ipynb) |
+| E20 | Self-correcting RAG | [episode_20_self_correcting_rag.ipynb](notebooks/episode_20_self_correcting_rag.ipynb) |
+| E21 | LangSmith observability | [episode_21_langsmith.ipynb](notebooks/episode_21_langsmith.ipynb) |
+| E22 | Human-in-the-loop checkpoints | [episode_22_human_in_the_loop.ipynb](notebooks/episode_22_human_in_the_loop.ipynb) |
+| E23 | Multi-agent systems | [episode_23_multi_agent.ipynb](notebooks/episode_23_multi_agent.ipynb) |
+| E24 | Phase 3 recap | [episode_24_phase3_recap.ipynb](notebooks/episode_24_phase3_recap.ipynb) |
+| E25 | FastAPI backend | [episode_25_fastapi_backend.ipynb](notebooks/episode_25_fastapi_backend.ipynb) |
+| E26 | Streamlit frontend | [episode_26_streamlit_frontend.ipynb](notebooks/episode_26_streamlit_frontend.ipynb) |
+| E27 | Docker & cloud deployment | [episode_27_deployment.ipynb](notebooks/episode_27_deployment.ipynb) |
+| E28 | Capstone & interview guide | [episode_28_capstone.ipynb](notebooks/episode_28_capstone.ipynb) |
 
 ---
 
@@ -213,3 +212,7 @@ Attribution appreciated but not required.
 ---
 
 *Built with [LangChain](https://langchain.com) · [LangGraph](https://langchain-ai.github.io/langgraph/) · [pgvector](https://github.com/pgvector/pgvector) · [RAGAS](https://docs.ragas.io)*
+
+---
+
+Author: Erick Kiprotich Yegon, epidemiologist and data scientist (real-world evidence, HEOR, causal inference) · Portfolio: https://erickyegon.github.io · LinkedIn: https://linkedin.com/in/erickyegon
