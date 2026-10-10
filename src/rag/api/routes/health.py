@@ -1,5 +1,7 @@
 """Health check endpoints — Episode 25."""
 
+from typing import Any
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -17,7 +19,7 @@ async def health_check() -> HealthResponse:
 
 
 @router.get("/ready")
-async def readiness():
+async def readiness() -> dict[str, Any]:
     """Readiness probe — checks DB connectivity."""
     try:
         from rag.ingestion.indexer import VectorIndex

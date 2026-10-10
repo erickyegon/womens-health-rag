@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from typing import Any
 
 from langchain_openai import ChatOpenAI
 
@@ -24,6 +25,7 @@ from rag.config.prompts import (
     ROUTER_PROMPT,
 )
 from rag.config.settings import get_settings
+from rag.llm_utils import message_text
 from rag.retrieval.vector_retriever import VectorRetriever
 
 logger = logging.getLogger(__name__)
@@ -31,7 +33,7 @@ logger = logging.getLogger(__name__)
 MAX_REWRITES = 2  # Episode 20: loop budget
 
 
-def get_llm():
+def get_llm() -> ChatOpenAI:
     s = get_settings()
     return ChatOpenAI(
         model=s.openai_model, temperature=0, openai_api_key=s.openai_api_key.get_secret_value()
@@ -41,11 +43,11 @@ def get_llm():
 # ── Episode 19: Router ────────────────────────────────────────────────────────
 
 
-def router_node(state: AgentState) -> dict:
+def router_node(state: AgentState) -> dict[str, Any]:
     """Classify query complexity → choose retrieval strategy."""
     llm = get_llm()
     resp = llm.invoke(ROUTER_PROMPT.format_messages(question=state["question"]))
-    text = resp.content.strip()
+    text = message_text(resp).strip()
     text = re.sub(r"```(?:json)?\n?", "", text).strip()
     try:
         data = json.loads(text)
@@ -68,7 +70,7 @@ def router_node(state: AgentState) -> dict:
 # ── Episode 19: Retrieve ──────────────────────────────────────────────────────
 
 
-def retrieve_node(state: AgentState, retriever: VectorRetriever | None = None) -> dict:
+def retrieve_node(state: AgentState, retriever: VectorRetriever | None = None) -> dict[str, Any]:
     """Retrieve documents based on the chosen strategy."""
     ret = retriever or VectorRetriever()
     query = state.get("query") or state["question"]
@@ -81,7 +83,7 @@ def retrieve_node(state: AgentState, retriever: VectorRetriever | None = None) -
 # ── Episode 20: Grade ─────────────────────────────────────────────────────────
 
 
-def grade_node(state: AgentState) -> dict:
+def grade_node(state: AgentState) -> dict[str, Any]:
     """
     Grade each retrieved document for relevance to the question.
     Relevant docs move to graded_docs. Irrelevant ones are dropped.
@@ -97,7 +99,7 @@ def grade_node(state: AgentState) -> dict:
             resp = llm.invoke(
                 GRADE_DOC_PROMPT.format_messages(question=question, document=doc.page_content[:500])
             )
-            text = re.sub(r"```(?:json)?\n?", "", resp.content.strip()).strip()
+            text = re.sub(r"```(?:json)?\n?", "", message_text(resp).strip()).strip()
             data = json.loads(text)
             if data.get("relevant", True):
                 relevant.append(doc)
@@ -118,12 +120,12 @@ def grade_node(state: AgentState) -> dict:
 # ── Episode 20: Rewrite ───────────────────────────────────────────────────────
 
 
-def rewrite_node(state: AgentState) -> dict:
+def rewrite_node(state: AgentState) -> dict[str, Any]:
     """Rewrite the query when grading finds insufficient relevant docs."""
     llm = get_llm()
     question = state["question"]
     rewrites = state.get("rewrites", 0) + 1
-    new_q = llm.invoke(REWRITE_PROMPT.format_messages(question=question)).content.strip()
+    new_q = message_text(llm.invoke(REWRITE_PROMPT.format_messages(question=question))).strip()
     logger.info("Rewrite #%d: %s → %s", rewrites, question[:40], new_q[:40])
     return {
         "query": new_q,
@@ -135,7 +137,7 @@ def rewrite_node(state: AgentState) -> dict:
 # ── Episode 20: Answer ────────────────────────────────────────────────────────
 
 
-def answer_node(state: AgentState) -> dict:
+def answer_node(state: AgentState) -> dict[str, Any]:
     """Generate a grounded answer from the relevant documents."""
     from rag.config.prompts import RAG_PROMPT
 
@@ -147,7 +149,7 @@ def answer_node(state: AgentState) -> dict:
     messages = RAG_PROMPT.format_messages(
         question=question, context=context, chat_history=state.get("chat_history", [])
     )
-    answer = llm.invoke(messages).content
+    answer = message_text(llm.invoke(messages))
 
     sources = [
         {
@@ -165,7 +167,7 @@ def answer_node(state: AgentState) -> dict:
 # ── Episode 20: Hallucination check ──────────────────────────────────────────
 
 
-def hallucination_check_node(state: AgentState) -> dict:
+def hallucination_check_node(state: AgentState) -> dict[str, Any]:
     """Verify the answer is grounded in retrieved documents."""
     llm = get_llm()
     answer = state.get("answer", "")
@@ -175,7 +177,7 @@ def hallucination_check_node(state: AgentState) -> dict:
     )
     try:
         resp = llm.invoke(HALLUCINATION_PROMPT.format_messages(answer=answer, documents=docs_text))
-        text = re.sub(r"```(?:json)?\n?", "", resp.content.strip()).strip()
+        text = re.sub(r"```(?:json)?\n?", "", message_text(resp).strip()).strip()
         data = json.loads(text)
         grounded = data.get("grounded", True)
     except Exception:
@@ -188,10 +190,10 @@ def hallucination_check_node(state: AgentState) -> dict:
 # ── Episode 22: Direct answer (no retrieval) ──────────────────────────────────
 
 
-def direct_answer_node(state: AgentState) -> dict:
+def direct_answer_node(state: AgentState) -> dict[str, Any]:
     """Answer simple questions directly without retrieval."""
     llm = get_llm()
-    ans = llm.invoke(state["question"]).content
+    ans = message_text(llm.invoke(state["question"]))
     return {"answer": ans, "sources": [], "graded_docs": []}
 
 

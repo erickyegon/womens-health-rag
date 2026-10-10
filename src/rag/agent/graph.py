@@ -19,9 +19,13 @@ Episode 23: multi-agent via supervisor (separate file)
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from typing import Any
 
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from rag.agent.nodes import (
     answer_node,
@@ -40,7 +44,9 @@ from rag.agent.state import AgentState, initial_state
 logger = logging.getLogger(__name__)
 
 
-def build_graph(checkpointer=None, human_in_loop: bool = False):
+def build_graph(
+    checkpointer: BaseCheckpointSaver[Any] | None = None, human_in_loop: bool = False
+) -> CompiledStateGraph[AgentState, Any, AgentState, AgentState]:
     """
     Build and compile the LangGraph StateGraph.
 
@@ -105,7 +111,12 @@ def build_graph(checkpointer=None, human_in_loop: bool = False):
     return graph.compile(**compile_kwargs)
 
 
-def run_agent(question: str, thread_id: str = "default", checkpointer=None, **kwargs) -> dict:
+def run_agent(
+    question: str,
+    thread_id: str = "default",
+    checkpointer: BaseCheckpointSaver[Any] | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
     """
     Run the agent for a single question.
 
@@ -119,9 +130,9 @@ def run_agent(question: str, thread_id: str = "default", checkpointer=None, **kw
     """
     app = build_graph(checkpointer=checkpointer)
     state = initial_state(question)
-    config = {"configurable": {"thread_id": thread_id}}
+    config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
 
-    final = app.invoke(state, config=config)
+    final: dict[str, Any] = app.invoke(state, config=config)
     logger.info(
         "Agent complete — answer: %s chars, grounded: %s",
         len(final.get("answer", "") or ""),
@@ -130,9 +141,15 @@ def run_agent(question: str, thread_id: str = "default", checkpointer=None, **kw
     return final
 
 
-def stream_agent(question: str, thread_id: str = "default", checkpointer=None):
+def stream_agent(
+    question: str,
+    thread_id: str = "default",
+    checkpointer: BaseCheckpointSaver[Any] | None = None,
+) -> Iterator[tuple[str, dict[str, Any]]]:
     """Stream agent execution — yields (node_name, state_update) tuples."""
     app = build_graph(checkpointer=checkpointer)
     state = initial_state(question)
-    config = {"configurable": {"thread_id": thread_id}}
-    yield from app.stream(state, config=config, stream_mode="updates")
+    config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
+    for chunk in app.stream(state, config=config, stream_mode="updates"):
+        # Each chunk is {node_name: state_update}; flatten to (node_name, update) pairs.
+        yield from chunk.items()

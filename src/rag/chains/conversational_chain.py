@@ -9,15 +9,17 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterator
+from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+from langchain_core.runnables import Runnable, RunnableLambda, RunnablePassthrough
 from langchain_openai import ChatOpenAI
 
 from rag.chains.rag_chain import format_docs
 from rag.config.prompts import RAG_PROMPT
 from rag.config.settings import get_settings
+from rag.llm_utils import message_text
 from rag.retrieval.vector_retriever import VectorRetriever
 
 logger = logging.getLogger(__name__)
@@ -30,7 +32,7 @@ Return ONLY the rewritten query."""
 
 def build_conversational_chain(
     retriever: VectorRetriever | None = None, max_history_turns: int = 5
-):
+) -> Runnable[dict[str, Any], str]:
     """
     Conversational RAG chain.
     Input: {"question": str, "chat_history": list[BaseMessage]}
@@ -45,20 +47,25 @@ def build_conversational_chain(
         openai_api_key=settings.openai_api_key.get_secret_value(),
     )  # type: ignore
 
-    def condense_question(inputs: dict) -> str:
+    def condense_question(inputs: dict[str, Any]) -> str:
         history = inputs.get("chat_history", [])[-max_history_turns * 2 :]
-        question = inputs["question"]
+        question: str = inputs["question"]
         if not history:
             return question
         history_text = "\n".join(
             f"{'Human' if isinstance(m, HumanMessage) else 'AI'}: {m.content}" for m in history
         )
         prompt = f"History:\n{history_text}\n\nFollow-up: {question}"
-        return llm.invoke(
-            [{"role": "system", "content": CONDENSE_SYSTEM}, {"role": "user", "content": prompt}]
-        ).content
+        return message_text(
+            llm.invoke(
+                [
+                    {"role": "system", "content": CONDENSE_SYSTEM},
+                    {"role": "user", "content": prompt},
+                ]
+            )
+        )
 
-    chain = (
+    chain: Runnable[dict[str, Any], str] = (
         RunnablePassthrough.assign(
             condensed_q=RunnableLambda(condense_question),
         )

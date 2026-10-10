@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from enum import StrEnum
+from typing import Any
 
 import numpy as np
 from langchain_core.documents import Document
@@ -57,7 +58,7 @@ class Embedder:
     def dimensions(self) -> int:
         return 1536 if self.backend == EmbedderBackend.OPENAI else 384
 
-    def _init_client(self, model_name_or_path):
+    def _init_client(self, model_name_or_path: str | None) -> Any:
         if self.backend == EmbedderBackend.OPENAI:
             from langchain_openai import OpenAIEmbeddings
 
@@ -114,7 +115,7 @@ def similarity_matrix(texts: list[str], embedder: Embedder) -> np.ndarray:
     vecs = np.array(embedder.embed_texts(texts), dtype=np.float32)
     norms = np.linalg.norm(vecs, axis=1, keepdims=True).clip(min=1e-8)
     vecs = vecs / norms
-    return vecs @ vecs.T
+    return np.asarray(vecs @ vecs.T)
 
 
 def top_similar(

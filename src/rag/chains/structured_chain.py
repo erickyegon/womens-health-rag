@@ -10,7 +10,8 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Literal
+from collections.abc import Callable
+from typing import Any, Literal
 
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
@@ -18,6 +19,7 @@ from pydantic import BaseModel, Field
 from rag.chains.rag_chain import format_docs
 from rag.config.prompts import STRUCTURED_RAG_PROMPT
 from rag.config.settings import get_settings
+from rag.llm_utils import message_text
 from rag.retrieval.vector_retriever import VectorRetriever
 
 logger = logging.getLogger(__name__)
@@ -38,7 +40,9 @@ class RAGResponse(BaseModel):
     caveat: str | None = Field(default=None)
 
 
-def build_structured_chain(retriever: VectorRetriever | None = None):
+def build_structured_chain(
+    retriever: VectorRetriever | None = None,
+) -> Callable[[dict[str, Any]], RAGResponse]:
     """
     Build a chain that returns RAGResponse Pydantic objects.
     Input:  {"question": str}
@@ -52,13 +56,13 @@ def build_structured_chain(retriever: VectorRetriever | None = None):
         openai_api_key=settings.openai_api_key.get_secret_value(),
     )  # type: ignore
 
-    def run(inputs: dict) -> RAGResponse:
+    def run(inputs: dict[str, Any]) -> RAGResponse:
         question = inputs["question"]
         docs = retriever.retrieve(question)
         context = format_docs(docs)
         messages = STRUCTURED_RAG_PROMPT.format_messages(question=question, context=context)
         response = llm.invoke(messages)
-        text = response.content.strip()
+        text = message_text(response).strip()
         text = re.sub(r"```(?:json)?\n?", "", text).strip()
         try:
             data = json.loads(text)

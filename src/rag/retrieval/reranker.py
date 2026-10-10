@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 from enum import StrEnum
+from typing import Any
 
 from langchain_core.documents import Document
 
@@ -50,7 +51,7 @@ class Reranker:
             return self._cohere_rerank(query, documents, n)
         return self._cross_encoder_rerank(query, documents, n)
 
-    def _init_client(self):
+    def _init_client(self) -> Any:
         if self.backend == RerankerBackend.COHERE:
             try:
                 import cohere

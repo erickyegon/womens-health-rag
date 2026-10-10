@@ -34,15 +34,16 @@ class RAGASRunner:
         runner.save(results)
     """
 
-    def __init__(self, rag_chain=None, retriever=None):
+    def __init__(self, rag_chain: Any = None, retriever: Any = None) -> None:
         self.chain = rag_chain
         self.retriever = retriever
         self.settings = get_settings()
 
-    def load_test_set(self) -> list[dict]:
+    def load_test_set(self) -> list[dict[str, Any]]:
         if not TEST_SET.exists():
             raise FileNotFoundError(f"Test set not found: {TEST_SET}")
-        return json.loads(TEST_SET.read_text())
+        test_set: list[dict[str, Any]] = json.loads(TEST_SET.read_text())
+        return test_set
 
     def run(self, tag: str = "baseline", question_types: list[str] | None = None) -> dict[str, Any]:
         """
@@ -72,7 +73,12 @@ class RAGASRunner:
             questions_raw = [q for q in questions_raw if q.get("type") in question_types]
 
         # Build dataset
-        data: dict[str, list] = {"question": [], "answer": [], "contexts": [], "ground_truth": []}
+        data: dict[str, list[Any]] = {
+            "question": [],
+            "answer": [],
+            "contexts": [],
+            "ground_truth": [],
+        }
 
         logger.info("Running RAGAS on %d questions [%s]...", len(questions_raw), tag)
 
@@ -125,7 +131,7 @@ class RAGASRunner:
         self._update_markdown(result)
         logger.info("Scores saved — %s", result["scores"])
 
-    def _save_csv(self, result: dict) -> None:
+    def _save_csv(self, result: dict[str, Any]) -> None:
         CSV_FILE.parent.mkdir(parents=True, exist_ok=True)
         write_header = not CSV_FILE.exists()
         with open(CSV_FILE, "a", newline="") as f:
@@ -155,7 +161,7 @@ class RAGASRunner:
                 ]
             )
 
-    def _update_markdown(self, result: dict) -> None:
+    def _update_markdown(self, result: dict[str, Any]) -> None:
         s = result["scores"]
         row = (
             f"| {result['tag']} | {result['timestamp'][:10]} | "

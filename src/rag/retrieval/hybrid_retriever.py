@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from typing import Any
 
 from langchain_core.documents import Document
+from langchain_core.retrievers import BaseRetriever
 
 from rag.retrieval.bm25_retriever import BM25Retriever
 from rag.retrieval.vector_retriever import VectorRetriever
@@ -84,7 +86,7 @@ class HybridRetriever:
         self.final_n = final_top_n
         self.rrf_k = rrf_k
 
-    def retrieve(self, query: str, filters: dict | None = None) -> list[Document]:
+    def retrieve(self, query: str, filters: dict[str, Any] | None = None) -> list[Document]:
         vector_docs = self.vector.retrieve(query, top_k=self.v_top_k, filters=filters)
         bm25_docs = self.bm25.retrieve(query, top_k=self.b_top_k)
         fused = reciprocal_rank_fusion([vector_docs, bm25_docs], k=self.rrf_k, top_n=self.final_n)
@@ -96,11 +98,7 @@ class HybridRetriever:
         )
         return fused
 
-    def as_langchain_retriever(self):
-        from typing import Any
-
-        from langchain_core.retrievers import BaseRetriever
-
+    def as_langchain_retriever(self) -> BaseRetriever:
         outer = self
 
         class HybridLC(BaseRetriever):

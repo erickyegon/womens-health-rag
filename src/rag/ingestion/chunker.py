@@ -487,7 +487,7 @@ def _semantic_chunk(pages: list[RawPage], chunk_size: int) -> list[Document]:
 # ── Metadata builder ──────────────────────────────────────────────────────────
 
 
-def _build_metadata(page: RawPage) -> dict:
+def _build_metadata(page: RawPage) -> dict[str, Any]:
     """
     Build the metadata dict attached to every chunk.
 
@@ -525,7 +525,7 @@ def _build_metadata(page: RawPage) -> dict:
 # ── Logging ───────────────────────────────────────────────────────────────────
 
 
-def _log_stats(stats: dict, strategy: ChunkStrategy) -> None:
+def _log_stats(stats: dict[str, Any], strategy: ChunkStrategy) -> None:
     if not stats:
         return
     logger.info(

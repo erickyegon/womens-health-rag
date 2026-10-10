@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from typing import Any
 
 import requests
 import streamlit as st
@@ -18,7 +19,7 @@ API_KEY = os.getenv("API_KEY", "dev-secret-change-in-prod")
 HEADERS = {"Authorization": f"Bearer {API_KEY}"}
 
 
-def main():
+def main() -> None:
     st.set_page_config(
         page_title="Women's Health Intelligence Assistant",
         page_icon="🌍",
@@ -84,7 +85,7 @@ def main():
 
             # Stream response
             full_text = ""
-            sources = []
+            sources: list[dict[str, Any]] = []
             t0 = time.perf_counter()
 
             try:
@@ -130,7 +131,7 @@ def main():
         )
 
 
-def _render_sources(sources: list[dict]):
+def _render_sources(sources: list[dict[str, Any]]) -> None:
     for s in sources:
         st.markdown(
             f"**[Source {s.get('n', '')}]** "

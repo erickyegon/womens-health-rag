@@ -10,11 +10,13 @@ from __future__ import annotations
 import json
 import logging
 import re
+from typing import Any
 
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
 
 from rag.config.settings import get_settings
+from rag.llm_utils import message_text
 from rag.retrieval.vector_retriever import VectorRetriever
 
 logger = logging.getLogger(__name__)
@@ -52,7 +54,9 @@ class SelfQueryRetriever:
             openai_api_key=self.settings.openai_api_key.get_secret_value(),
         )  # type: ignore
 
-    def retrieve(self, query: str, top_k: int | None = None) -> tuple[list[Document], dict]:
+    def retrieve(
+        self, query: str, top_k: int | None = None
+    ) -> tuple[list[Document], dict[str, Any]]:
         """
         Returns (documents, extracted_filters).
         The filters dict is returned for transparency / debugging in LangSmith.
@@ -64,14 +68,15 @@ class SelfQueryRetriever:
         logger.info("Self-query filters: %s → %d docs", active, len(docs))
         return docs, active
 
-    def _extract_filters(self, query: str) -> dict:
+    def _extract_filters(self, query: str) -> dict[str, Any]:
         prompt = EXTRACT_FILTERS_PROMPT.format(query=query)
         response = self._llm.invoke(prompt)
-        text = response.content.strip()
+        text = message_text(response).strip()
         # Strip markdown code fences if present
         text = re.sub(r"```(?:json)?\n?", "", text).strip()
         try:
-            return json.loads(text)
+            parsed: dict[str, Any] = json.loads(text)
+            return parsed
         except json.JSONDecodeError:
             logger.warning("Could not parse filter JSON: %s", text)
             return {}

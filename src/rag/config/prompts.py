@@ -33,12 +33,12 @@ STRUCTURED_RAG_SYSTEM = (
     RAG_SYSTEM
     + """
 Respond ONLY with a JSON object matching this schema exactly:
-{
+{{
   "answer": "<your answer text with inline [Source N] citations>",
-  "sources": [{"n": 1, "title": "...", "page": ..., "country": "...", "year": "..."}],
+  "sources": [{{"n": 1, "title": "...", "page": ..., "country": "...", "year": "..."}}],
   "confidence": "high|medium|low",
   "caveat": "<any important limitation or uncertainty, or null>"
-}"""
+}}"""
 )
 
 STRUCTURED_RAG_PROMPT = ChatPromptTemplate.from_messages(

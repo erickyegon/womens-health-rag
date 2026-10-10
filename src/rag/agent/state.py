@@ -7,14 +7,14 @@ Single source of truth — all nodes read/write this schema.
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, TypedDict
 
 from langchain_core.documents import Document
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
 
-class AgentState(dict):
+class AgentState(TypedDict):
     """
     LangGraph state schema for the Women's Health RAG agent.
 
@@ -43,12 +43,12 @@ class AgentState(dict):
     graded_docs: list[Document]
     answer: str | None
     grounded: bool | None
-    sources: list[dict]
-    filters: dict
-    metadata: dict
+    sources: list[dict[str, Any]]
+    filters: dict[str, Any]
+    metadata: dict[str, Any]
 
 
-def initial_state(question: str, chat_history: list | None = None) -> AgentState:
+def initial_state(question: str, chat_history: list[Any] | None = None) -> AgentState:
     """Create a fresh state for a new query."""
     return AgentState(
         question=question,

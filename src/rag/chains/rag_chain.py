@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator, Iterator
+from typing import Any
 
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
+from langchain_core.runnables import Runnable, RunnablePassthrough
 from langchain_openai import ChatOpenAI
 
 from rag.config.prompts import RAG_PROMPT
@@ -22,7 +23,7 @@ from rag.retrieval.vector_retriever import VectorRetriever
 logger = logging.getLogger(__name__)
 
 
-def build_rag_chain(retriever: VectorRetriever | None = None):
+def build_rag_chain(retriever: VectorRetriever | None = None) -> Runnable[Any, str]:
     """
     Build the base RAG chain:
         {"context": retriever | format_docs, "question": passthrough}
@@ -36,7 +37,7 @@ def build_rag_chain(retriever: VectorRetriever | None = None):
         streaming=True,
         openai_api_key=settings.openai_api_key.get_secret_value(),
     )  # type: ignore
-    chain = (
+    chain: Runnable[Any, str] = (
         {
             "context": retriever.as_langchain_retriever() | format_docs,
             "question": RunnablePassthrough(),

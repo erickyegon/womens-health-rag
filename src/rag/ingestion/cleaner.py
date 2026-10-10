@@ -34,6 +34,7 @@ import logging
 import re
 import unicodedata
 from collections.abc import Callable
+from typing import Any
 
 from rag.ingestion.loader import RawPage
 
@@ -107,7 +108,7 @@ def clean_pages(
     return kept
 
 
-def cleaning_report(raw: RawPage, cleaned: RawPage) -> dict:
+def cleaning_report(raw: RawPage, cleaned: RawPage) -> dict[str, Any]:
     """
     Generate a before/after comparison report for a single page.
     Used in the Episode 2 notebook to show what each step does.
@@ -230,6 +231,7 @@ def _remove_footnote_numbers(text: str) -> str:
         "in 2021 the rate"   — "2021" is preceded by a space, not a word char
         "95% confidence"     — "95" is preceded by a space
         "Table 3.2"          — "3" is preceded by a period
+        "between 2015 and 2020", "MMR of 1,512" - digits that follow another digit are never markers
 
     Regex breakdown:
         (?<=\\w)   — lookbehind: immediately after a word character
@@ -238,7 +240,11 @@ def _remove_footnote_numbers(text: str) -> str:
         (?=[,. \\n\\t]|$)  — followed by punctuation, whitespace, or end
     """
     # Multi-ref pattern: word12,3,4 → word
-    text = re.sub(r"(?<=\w)(\d{1,2})(,\d{1,2})*(?=[,.\s\n\t]|$)", "", text)
+    # A footnote marker follows a lowercase letter (so years such as 2021 and numbers such as
+    # 1,512 are never touched) and is followed by optional punctuation, then whitespace or the end.
+    text = re.sub(r"(?<=[a-z])\d{1,2}(?:,\d{1,2})*(?=[,.;:]?(?:\s|$))", "", text)
+    # Marker typeset after a comma, e.g. Nigeria,3 Kenya becomes Nigeria, Kenya
+    text = re.sub(r"(?<=[a-z],)\d{1,2}(?=\s|$)", "", text)
     return text
 
 
@@ -450,7 +456,7 @@ PIPELINE_STEPS: list[tuple[str, Callable[[str], str]]] = [
 ]
 
 
-def step_by_step_clean(text: str) -> list[dict]:
+def step_by_step_clean(text: str) -> list[dict[str, Any]]:
     """
     Apply each cleaning step individually and return the result of each.
 

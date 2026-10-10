@@ -93,7 +93,7 @@ class VectorIndex:
         self,
         query_vector: list[float],
         top_k: int = 20,
-        filters: dict | None = None,
+        filters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Raw similarity search — used by VectorRetriever."""
         where, params = self._build_where(filters or {})
@@ -119,7 +119,7 @@ class VectorIndex:
         self.init_schema()
         logger.warning("Table %s dropped and recreated.", self.table)
 
-    def _to_row(self, doc: Document, vector: list[float]) -> dict:
+    def _to_row(self, doc: Document, vector: list[float]) -> dict[str, Any]:
         meta = doc.metadata
         ch = hashlib.sha256(doc.page_content.encode()).hexdigest()
         extra = {
@@ -155,7 +155,7 @@ class VectorIndex:
             "metadata": json.dumps(extra),
         }
 
-    def _build_where(self, filters: dict) -> tuple[str, dict]:
+    def _build_where(self, filters: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         allowed = {"country", "year", "report_type", "report_title"}
         clauses, params = [], {}
         for k, v in filters.items():
@@ -175,7 +175,7 @@ def main() -> None:
     sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
     import json as _json
 
-    from rag.ingestion.chunker import ChunkStrategy, chunk_pages
+    from rag.ingestion.chunker import ChunkResult, ChunkStrategy, chunk_pages
     from rag.ingestion.cleaner import clean_pages
     from rag.ingestion.loader import load_directory
 
@@ -185,7 +185,8 @@ def main() -> None:
 
     pages = load_directory(data_dir, metadata_map=meta_map)
     cleaned = clean_pages(pages)
-    docs = chunk_pages(cleaned, ChunkStrategy.RECURSIVE)
+    chunked = chunk_pages(cleaned, ChunkStrategy.RECURSIVE)
+    docs = chunked.documents if isinstance(chunked, ChunkResult) else chunked
 
     idx = VectorIndex()
     idx.init_schema()

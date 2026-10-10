@@ -442,7 +442,10 @@ class TestCleanPages:
             make_page(REALISTIC_DHS_TEXT),  # real content — keep
             make_page("   \n\n   "),  # empty — filter
             make_page("x"),  # too short — filter
-            make_page("Skilled birth attendance rates in Kenya were 62%."),  # keep
+            make_page(
+                "Skilled birth attendance rates in Kenya were 62% in 2022, "
+                "up from 61% in 2014 and 44% in 2008."
+            ),  # keep
         ]
         cleaned = clean_pages(pages, min_chars=80)
         assert len(cleaned) == 2

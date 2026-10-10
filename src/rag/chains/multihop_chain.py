@@ -10,12 +10,14 @@ from __future__ import annotations
 import json
 import logging
 import re
+from typing import Any
 
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
 
 from rag.chains.rag_chain import format_docs
 from rag.config.settings import get_settings
+from rag.llm_utils import message_text
 from rag.retrieval.vector_retriever import VectorRetriever
 
 logger = logging.getLogger(__name__)
@@ -45,7 +47,7 @@ class MultiHopChain:
             openai_api_key=self.settings.openai_api_key.get_secret_value(),
         )  # type: ignore
 
-    def invoke(self, question: str) -> dict:
+    def invoke(self, question: str) -> dict[str, Any]:
         """
         Returns:
             {"answer": str, "sub_questions": list, "sub_contexts": list}
@@ -77,7 +79,7 @@ class MultiHopChain:
             f"Context:\n{context}\n\n"
             f"Answer (cite [Source N] for every claim):"
         )
-        answer = self._llm.invoke(synth_prompt).content
+        answer = message_text(self._llm.invoke(synth_prompt))
 
         return {
             "answer": answer,
@@ -91,10 +93,11 @@ class MultiHopChain:
             {"role": "system", "content": DECOMPOSE_SYSTEM},
             {"role": "user", "content": question},
         ]
-        resp = self._llm.invoke(msg).content.strip()
+        resp = message_text(self._llm.invoke(msg)).strip()
         resp = re.sub(r"```(?:json)?\n?", "", resp).strip()
         try:
             data = json.loads(resp)
-            return data.get("sub_questions", [question])
+            sub_qs: list[str] = data.get("sub_questions", [question])
+            return sub_qs
         except Exception:
             return [question]

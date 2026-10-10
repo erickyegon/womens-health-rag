@@ -11,6 +11,7 @@ import json
 import logging
 import time
 from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.responses import StreamingResponse
@@ -26,18 +27,20 @@ bearer = HTTPBearer(auto_error=False)
 
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=3, max_length=2000)
-    filters: dict = Field(default_factory=dict)
+    filters: dict[str, Any] = Field(default_factory=dict)
     stream: bool = Field(default=True)
     use_agent: bool = Field(default=False, description="Use LangGraph agent (Phase 3)")
 
 
 class QueryResponse(BaseModel):
     answer: str
-    sources: list[dict] = Field(default_factory=list)
-    metadata: dict = Field(default_factory=dict)
+    sources: list[dict[str, Any]] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-def verify_api_key(credentials: HTTPAuthorizationCredentials | None = Security(bearer)):
+def verify_api_key(
+    credentials: HTTPAuthorizationCredentials | None = Security(bearer),
+) -> str:
     settings = get_settings()
     expected = settings.api_key.get_secret_value()
     if not credentials or credentials.credentials != expected:

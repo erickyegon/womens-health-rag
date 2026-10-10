@@ -30,7 +30,7 @@ class VectorRetriever:
         self,
         embedder: Embedder | None = None,
         top_k: int | None = None,
-        filters: dict | None = None,
+        filters: dict[str, Any] | None = None,
         backend: EmbedderBackend = EmbedderBackend.OPENAI,
     ):
         self.settings = get_settings()
@@ -40,7 +40,7 @@ class VectorRetriever:
         self._index = VectorIndex(embedder=self.embedder)
 
     def retrieve(
-        self, query: str, top_k: int | None = None, filters: dict | None = None
+        self, query: str, top_k: int | None = None, filters: dict[str, Any] | None = None
     ) -> list[Document]:
         k = top_k or self.top_k
         active = filters if filters is not None else self.filters
@@ -51,14 +51,14 @@ class VectorRetriever:
         return docs
 
     def as_langchain_retriever(
-        self, top_k: int | None = None, filters: dict | None = None
+        self, top_k: int | None = None, filters: dict[str, Any] | None = None
     ) -> LCRetriever:
         return LCRetriever(
             vector_retriever=self, _top_k=top_k or self.top_k, _filters=filters or self.filters
         )
 
     @staticmethod
-    def _to_doc(row: dict) -> Document:
+    def _to_doc(row: dict[str, Any]) -> Document:
         import json
 
         extra = {}
@@ -95,7 +95,7 @@ class LCRetriever(BaseRetriever):
 
     vector_retriever: VectorRetriever
     _top_k: int = 20
-    _filters: dict = {}
+    _filters: dict[str, Any] = {}
 
     class Config:
         arbitrary_types_allowed = True

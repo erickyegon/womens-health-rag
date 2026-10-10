@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from rag.api.routes import health, query
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Startup / shutdown lifecycle."""
     settings = get_settings()
     logger.info("Starting Women's Health RAG API — model: %s", settings.openai_model)
@@ -49,7 +50,9 @@ def create_app() -> FastAPI:
 
     # Request logging middleware
     @app.middleware("http")
-    async def log_requests(request: Request, call_next):
+    async def log_requests(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         t0 = time.perf_counter()
         response = await call_next(request)
         elapsed = time.perf_counter() - t0

@@ -17,6 +17,7 @@ from langchain_openai import ChatOpenAI
 
 from rag.config.prompts import INPUT_GUARD_PROMPT
 from rag.config.settings import get_settings
+from rag.llm_utils import message_text
 
 logger = logging.getLogger(__name__)
 
@@ -92,9 +93,11 @@ class InputGuard:
         return GuardResult("safe", "Passed rule-based check", True)
 
     def _llm_check(self, question: str) -> GuardResult:
+        if self._llm is None:
+            return GuardResult("safe", "LLM check disabled", True)
         try:
             resp = self._llm.invoke(INPUT_GUARD_PROMPT.format_messages(question=question))
-            text = resp.content.strip()
+            text = message_text(resp).strip()
             text = re.sub(r"```(?:json)?\n?", "", text).strip()
             data = json.loads(text)
             cls = data.get("classification", "safe")

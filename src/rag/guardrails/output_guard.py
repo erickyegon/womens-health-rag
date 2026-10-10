@@ -16,6 +16,7 @@ from langchain_openai import ChatOpenAI
 
 from rag.config.prompts import HALLUCINATION_PROMPT
 from rag.config.settings import get_settings
+from rag.llm_utils import message_text
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class OutputGuard:
             resp = self._llm.invoke(
                 HALLUCINATION_PROMPT.format_messages(answer=answer, documents=docs_text)
             )
-            text = resp.content.strip()
+            text = message_text(resp).strip()
             text = re.sub(r"```(?:json)?\n?", "", text).strip()
             data = json.loads(text)
             unsupported = data.get("unsupported_claims", [])

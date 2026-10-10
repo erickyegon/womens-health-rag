@@ -58,7 +58,7 @@ import logging
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.documents import Document
 
@@ -164,7 +164,7 @@ class MultimodalLoader:
         self.vision_model = vision_model
         self.table_prose = table_prose
         self.batch_vision = batch_vision
-        self._vision_client = None  # lazy init
+        self._vision_client: Any = None  # lazy init
 
     def load_pdf(
         self,
@@ -227,7 +227,7 @@ class MultimodalLoader:
     def load_directory(
         self,
         directory: Path | str,
-        metadata_map: dict[str, dict] | None = None,
+        metadata_map: dict[str, dict[str, Any]] | None = None,
         glob: str = "**/*.pdf",
     ) -> list[DocElement]:
         """Load all PDFs in a directory."""
@@ -285,7 +285,7 @@ class MultimodalLoader:
 
     # ── Layer 1: Docling ──────────────────────────────────────────────────────
 
-    def _docling_extract(self, path: Path, meta: dict) -> list[DocElement]:
+    def _docling_extract(self, path: Path, meta: dict[str, Any]) -> list[DocElement]:
         """
         Use Docling to extract structured elements from a PDF.
         DocLayNet identifies: headings, paragraphs, tables, figures, lists.
@@ -486,7 +486,7 @@ precise data queries about women's health statistics."""
                 ],
                 max_tokens=1000,
             )
-            return response.choices[0].message.content.strip()
+            return str(response.choices[0].message.content or "").strip()
         except Exception as e:
             logger.warning("GPT-4o vision call failed: %s", e)
             return f"[Figure — vision processing failed: {e}]"
@@ -570,14 +570,14 @@ Output ONLY the prose description, nothing else."""
                 max_tokens=400,
                 temperature=0,
             )
-            return response.choices[0].message.content.strip()
+            return str(response.choices[0].message.content or "").strip()
         except Exception as e:
             logger.warning("Table prose generation failed: %s", e)
             return markdown  # fall back to markdown
 
     # ── Helper methods ────────────────────────────────────────────────────────
 
-    def _init_vision_client(self):
+    def _init_vision_client(self) -> Any:
         try:
             import openai
 
@@ -593,7 +593,7 @@ Output ONLY the prose description, nothing else."""
         """Extract page number from a Docling item."""
         try:
             if hasattr(item, "prov") and item.prov:
-                return item.prov[0].page_no
+                return int(item.prov[0].page_no)
         except Exception:
             pass
         return 1
@@ -621,7 +621,7 @@ Output ONLY the prose description, nothing else."""
         try:
             import pymupdf
 
-            doc = pymupdf.open(str(path))
+            doc: Any = cast(Any, pymupdf).open(str(path))
             page = doc[page_number - 1]
             pix = page.get_pixmap(dpi=150)
             img_bytes = pix.tobytes("png")
@@ -631,7 +631,7 @@ Output ONLY the prose description, nothing else."""
             logger.warning("Page render failed for page %d: %s", page_number, e)
             return None
 
-    def _pymupdf_fallback(self, path: Path, meta: dict) -> list[DocElement]:
+    def _pymupdf_fallback(self, path: Path, meta: dict[str, Any]) -> list[DocElement]:
         """
         Fallback extractor when Docling is not installed.
         Returns basic text elements without table/figure understanding.
@@ -642,7 +642,7 @@ Output ONLY the prose description, nothing else."""
             raise ImportError("Neither Docling nor PyMuPDF is installed.")
 
         logger.warning("Using PyMuPDF fallback — install Docling for full multimodal support")
-        doc = pymupdf.open(str(path))
+        doc: Any = cast(Any, pymupdf).open(str(path))
         total = len(doc)
         elements: list[DocElement] = []
 
@@ -696,7 +696,7 @@ def load_pdf_multimodal(
 
 def load_directory_multimodal(
     directory: Path | str,
-    metadata_map: dict | None = None,
+    metadata_map: dict[str, Any] | None = None,
     vision_enabled: bool = True,
 ) -> list[Document]:
     """
@@ -708,7 +708,7 @@ def load_directory_multimodal(
     return loader.to_documents(elements)
 
 
-def element_stats(elements: list[DocElement]) -> dict:
+def element_stats(elements: list[DocElement]) -> dict[str, Any]:
     """Summary statistics for a multimodal load — used in Episode 2B notebook."""
     from collections import Counter
 

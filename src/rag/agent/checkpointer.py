@@ -9,18 +9,24 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from langchain_core.runnables import RunnableConfig
+
+if TYPE_CHECKING:
+    from langgraph.checkpoint.memory import MemorySaver
 
 logger = logging.getLogger(__name__)
 
 
-def get_memory_checkpointer():
+def get_memory_checkpointer() -> MemorySaver:
     """In-memory checkpointer — state lost on restart. Good for demos."""
     from langgraph.checkpoint.memory import MemorySaver
 
     return MemorySaver()
 
 
-def get_sqlite_checkpointer(db_path: str = "checkpoints/agent.db"):
+def get_sqlite_checkpointer(db_path: str = "checkpoints/agent.db") -> Any:
     """
     SQLite checkpointer — state persists across restarts.
     Used in Episode 22 for human-in-the-loop.
@@ -37,7 +43,9 @@ def get_sqlite_checkpointer(db_path: str = "checkpoints/agent.db"):
     return SqliteSaver.from_conn_string(db_path)
 
 
-def run_with_hitl(question: str, thread_id: str = "hitl-demo", auto_approve: bool = False) -> dict:
+def run_with_hitl(
+    question: str, thread_id: str = "hitl-demo", auto_approve: bool = False
+) -> dict[str, Any]:
     """
     Episode 22 demo: run agent with human-in-the-loop.
 
@@ -55,7 +63,7 @@ def run_with_hitl(question: str, thread_id: str = "hitl-demo", auto_approve: boo
     checkpointer = get_sqlite_checkpointer()
     app = build_graph(checkpointer=checkpointer, human_in_loop=True)
     state = initial_state(question)
-    config = {"configurable": {"thread_id": thread_id}}
+    config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
 
     # Run until interrupt
     partial = app.invoke(state, config=config)
@@ -75,5 +83,5 @@ def run_with_hitl(question: str, thread_id: str = "hitl-demo", auto_approve: boo
             return {**partial, "answer": "Query rejected during human review."}
 
     # Resume
-    final = app.invoke(None, config=config)
+    final: dict[str, Any] = app.invoke(None, config=config)
     return final

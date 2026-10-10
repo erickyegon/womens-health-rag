@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import Any
 
 from langchain_core.documents import Document
 
@@ -54,7 +55,7 @@ class BM25Retriever:
         return results
 
     @classmethod
-    def from_vector_index(cls, index, top_k: int = 10000) -> BM25Retriever:
+    def from_vector_index(cls, index: Any, top_k: int = 10000) -> BM25Retriever:
         """Build from all documents in a VectorIndex (fetches without embedding)."""
         raise NotImplementedError("Use from_documents() with pre-loaded docs")
 

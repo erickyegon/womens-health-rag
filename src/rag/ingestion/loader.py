@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +107,7 @@ def load_pdf(
 
 def load_directory(
     directory: Path | str,
-    metadata_map: dict[str, dict] | None = None,
+    metadata_map: dict[str, dict[str, Any]] | None = None,
     glob: str = "**/*.pdf",
 ) -> list[RawPage]:
     """
@@ -155,12 +156,12 @@ def load_directory(
 def _load_with_pymupdf(path: Path) -> list[RawPage]:
     """Primary PDF extractor using PyMuPDF (fitz)."""
     try:
-        import pymupdf  # type: ignore[import]
+        import pymupdf
     except ImportError:
         raise ImportError("PyMuPDF not installed. Run: uv add pymupdf")
 
     pages: list[RawPage] = []
-    doc = pymupdf.open(str(path))
+    doc: Any = cast(Any, pymupdf).open(str(path))
 
     for i, page in enumerate(doc, start=1):
         text = page.get_text("text")  # plain text extraction
@@ -181,7 +182,7 @@ def _load_with_pymupdf(path: Path) -> list[RawPage]:
 def _load_with_pdfplumber(path: Path) -> list[RawPage]:
     """Fallback PDF extractor using pdfplumber — better for tables."""
     try:
-        import pdfplumber  # type: ignore[import]
+        import pdfplumber
     except ImportError:
         raise ImportError("pdfplumber not installed. Run: uv add pdfplumber")
 

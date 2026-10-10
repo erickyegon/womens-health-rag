@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import logging
 from enum import StrEnum
+from typing import Any
 
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
 
 from rag.config.prompts import HYDE_PROMPT, MULTI_QUERY_PROMPT, REWRITE_PROMPT
 from rag.config.settings import get_settings
+from rag.llm_utils import message_text
 from rag.retrieval.hybrid_retriever import reciprocal_rank_fusion
 from rag.retrieval.vector_retriever import VectorRetriever
 
@@ -52,7 +54,7 @@ class QueryRewriter:
         question: str,
         strategy: RewriteStrategy = RewriteStrategy.DIRECT,
         top_k: int | None = None,
-    ) -> tuple[list[Document], dict]:
+    ) -> tuple[list[Document], dict[str, Any]]:
         """
         Returns (documents, rewrite_info) where rewrite_info shows what was done.
         """
@@ -62,23 +64,29 @@ class QueryRewriter:
             return self._hyde(question, top_k)
         return self._multi_query(question, top_k)
 
-    def _direct(self, question: str, top_k) -> tuple[list[Document], dict]:
-        rewritten = self._llm.invoke(
-            REWRITE_PROMPT.format_messages(question=question)
-        ).content.strip()
+    def _direct(self, question: str, top_k: int | None) -> tuple[list[Document], dict[str, Any]]:
+        rewritten = message_text(
+            self._llm.invoke(REWRITE_PROMPT.format_messages(question=question))
+        ).strip()
         docs = self.retriever.retrieve(rewritten, top_k=top_k)
         return docs, {"strategy": "direct", "rewritten": rewritten}
 
-    def _hyde(self, question: str, top_k) -> tuple[list[Document], dict]:
-        hypo_doc = self._llm.invoke(HYDE_PROMPT.format_messages(question=question)).content.strip()
+    def _hyde(self, question: str, top_k: int | None) -> tuple[list[Document], dict[str, Any]]:
+        hypo_doc = message_text(
+            self._llm.invoke(HYDE_PROMPT.format_messages(question=question))
+        ).strip()
         # Embed the hypothetical document and search
         docs = self.retriever.retrieve(hypo_doc, top_k=top_k)
         return docs, {"strategy": "hyde", "hypothetical_doc": hypo_doc}
 
-    def _multi_query(self, question: str, top_k) -> tuple[list[Document], dict]:
-        resp = self._llm.invoke(
-            MULTI_QUERY_PROMPT.format_messages(question=question, n=self.n_queries)
-        ).content.strip()
+    def _multi_query(
+        self, question: str, top_k: int | None
+    ) -> tuple[list[Document], dict[str, Any]]:
+        resp = message_text(
+            self._llm.invoke(
+                MULTI_QUERY_PROMPT.format_messages(question=question, n=self.n_queries)
+            )
+        ).strip()
         queries = [q.strip() for q in resp.split("\n") if q.strip()][: self.n_queries]
         all_results = [self.retriever.retrieve(q, top_k=top_k or 10) for q in queries]
         fused = reciprocal_rank_fusion(all_results, top_n=top_k or 20)
